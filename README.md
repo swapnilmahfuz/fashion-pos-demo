@@ -1,4 +1,4 @@
-# THREAD / Retail OS — Fashion POS client demo V1.1
+# QAHAF — Fashion POS client demo V1.2
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
 
@@ -6,14 +6,14 @@ An interactive, sample-data-only browser prototype for a two-branch menswear POS
 
 Open `index.html` in a web browser (no build step). The demo also works via any static HTTP server.
 
-## V1.1 client review
+## V1.2 client review
 
-- Owner branch selection persists in this browser. Combined, Branch 1 (Gulshan), and Branch 2 (Dhanmondi) apply across screens and CSV reports.
-- The demo Manager is assigned permanently to Branch 1. The role selector simulates access for client review.
+- Owner branch selection persists in this browser. Combined, New Market, and Dakbangla apply across screens and CSV reports.
+- The demo Manager is assigned permanently to New Market. The role selector simulates access for client review.
 - Daily Overview defaults to today in Asia/Dhaka. Monthly Overview and Profit analytics share the selected month. Expenses and customer reports use that month too.
 - A deterministic 90-day sample sales ledger supplies invoices, discounts, refunds, payment methods, item/category performance and gross profit. Revenue and profit include refund reversals. Average invoice is net revenue divided by sales invoice count.
 - Operating profit equals gross profit less expenses. Every expense belongs to one branch. Combined reports sum the two branches without allocating or splitting expenses. Inventory value always reflects current stock at catalog cost.
-- Owner manages shared categories. Product forms create size/color combinations, unique immutable barcodes, price/cost, VAT metadata and optional local images. Archive keeps historical category references.
+- Owner manages shared categories. Both roles can add a category inside product entry. Add New Product creates size/color variants, unique company-wide SKUs and immutable barcodes, descriptions, price/cost, inclusive-by-default VAT metadata, optional images and initial stock in a selected branch. Save, Save & Add Another, and Save & Print Barcode actions are available. Auto SKUs use stable category codes and sequential product numbers. Manual SKU changes retain prior references and stable variant IDs. Archive keeps historical category references.
 - Inventory supports barcode/SKU lookup, size/color matrices, sample receiving, transfer dispatch/receipt, and label printing from rows and details.
 - POS accepts barcode plus Enter in the scan field. F2 focuses it. Fast HID scans also work when focus is outside editable fields. Other input fields retain normal typing. Repeated scans respect branch stock limits.
 - Sample checkout updates the in-memory sales ledger and branch stock. Receiving and transfers update sample on-hand stock. Combined requires a specific branch for operational transactions.
