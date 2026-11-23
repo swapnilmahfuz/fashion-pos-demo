@@ -52,7 +52,7 @@ input,textarea,select{color:var(--ink)}
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}
 input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
 input[type=file]::file-selector-button{background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
-.sku-input:read-only{background:var(--soft);color:var(--muted)}
+.sku-input:read-only{background:var(--panel);color:var(--muted)}
 #inline-category,.metric .symbol,.pill,.tag{background:var(--soft)}
 .product-art{color:var(--accent)}
 ::selection{background:var(--taupe);color:var(--ink)}
