@@ -29,6 +29,7 @@ This is an **illustrative static demo**, not a live POS. All data is invented. O
 
 Do not share a guessed URL as verified until GitHub Actions confirms successful deployment.
 
+
 ## Live product after client approval
 
 Planned production stack: PHP/Laravel, MySQL/MariaDB and a Vue-powered browser UI, subject to cPanel compatibility tests. The client's domain and hosting are not needed for this client demo.
