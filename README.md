@@ -1,4 +1,4 @@
-# THREAD / Retail OS — Advanced Fashion POS client demo
+# THREAD / Retail OS — Fashion POS client demo V1.1
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
 
@@ -6,26 +6,40 @@ An interactive, sample-data-only browser prototype for a two-branch menswear POS
 
 Open `index.html` in a web browser (no build step). The demo also works via any static HTTP server.
 
+## V1.1 client review
+
+- Owner branch selection persists in this browser. Combined, Branch 1 (Gulshan), and Branch 2 (Dhanmondi) apply across screens and CSV reports.
+- The demo Manager is assigned permanently to Branch 1. The role selector simulates access for client review.
+- Daily Overview defaults to today in Asia/Dhaka. Monthly Overview and Profit analytics share the selected month. Expenses and customer reports use that month too.
+- A deterministic 90-day sample sales ledger supplies invoices, discounts, refunds, payment methods, item/category performance and gross profit. Revenue and profit include refund reversals. Average invoice is net revenue divided by sales invoice count.
+- Operating profit equals gross profit less expenses. Shared expenses allocate equally to the two branches. Inventory value always reflects current stock at catalog cost.
+- Owner manages shared categories. Product forms create size/color combinations, unique immutable barcodes, price/cost, VAT metadata and optional local images. Archive keeps historical category references.
+- Inventory supports barcode/SKU lookup, size/color matrices, sample receiving, transfer dispatch/receipt, and label printing from rows and details.
+- POS accepts barcode plus Enter in the scan field. F2 focuses it. Fast HID scans also work when focus is outside editable fields. Other input fields retain normal typing. Repeated scans respect branch stock limits.
+- Sample checkout updates the in-memory sales ledger and branch stock. Receiving and transfers update sample on-hand stock. Combined requires a specific branch for operational transactions.
+- Code 128 labels use locally bundled JsBarcode 3.12.1 under its MIT license. Print 1–100 labels at 58 or 80 mm. Reprints retain the same barcode. Use 100% print scale and validate a physical print with the demonstration scanner.
+
 ## Demo features
 
 - Owner profile: both branches and consolidated dashboards.
-- Manager profile: one selected branch at a time, with identical operational modules scoped to that branch.
+- Manager profile: one assigned branch, with identical operational modules scoped to that branch.
 - Sample dashboards, product variants, unique example barcodes, stock, purchasing, transfers, expenses, profitability, customers and settings.
 - Sample checkout: add products, scan example barcodes via typing/keyboard, change quantities, discount flat or %, preview a non-tax sample receipt and use browser print.
 - Sample expenses and transfer/purchasing requests, local only until refresh.
 - Sample report CSV export.
 
+Physical USB scanner and printer validation requires the demonstration hardware. Keyboard scan simulation and browser print layouts can be tested in Chromium. VAT mode is catalog metadata. Report prices are illustrative net-of-VAT amounts. Only the Owner branch preference persists locally.
+
 ## Important limitations
 
-This is an **illustrative static demo**, not a live POS. All data is invented. Owner/Manager role switching is a UX simulation, not secure authentication. No server, persistent database, actual inventory costing, transactional stock movements, invoice processing, real barcode encoding, payments, customer marketing, or VAT compliance is implemented. Production requires a server-enforced permission model, validated VAT rules, weighted-average cost, immutable stock ledger, and reconciliation.
+This is an **illustrative static demo**, not a live POS. All data is invented. Owner/Manager role switching is a UX simulation, not secure authentication. No server, persistent database, production inventory costing, durable transaction processing, payments, customer marketing, or VAT compliance is implemented. Production requires a server-enforced permission model, validated VAT rules, weighted-average cost, immutable stock ledger, and reconciliation.
 
-## Create a GitHub repository and publish
+## Publish this repository
 
-1. In GitHub, create a **new public repository** named `fashion-pos-demo` (or another name).
-2. Upload the contents of this folder to the repository's `main` branch, preserving `.github/workflows/pages.yml`.
-3. In **Settings → Pages**, set **Build and deployment → Source: GitHub Actions**.
-4. Open **Actions**, run **Deploy client demo to GitHub Pages** if a deployment did not automatically start.
-5. After deployment succeeds, the preview will be at `https://YOUR-USERNAME.github.io/REPO-NAME/`.
+1. Push to the existing repository's `main` branch.
+2. In **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**.
+3. Open **Actions**, run **Deploy client demo to GitHub Pages** if a deployment did not automatically start.
+4. After deployment succeeds, verify `https://swapnilmahfuz.github.io/fashion-pos-demo/`.
 
 Do not share a guessed URL as verified until GitHub Actions confirms successful deployment.
 
