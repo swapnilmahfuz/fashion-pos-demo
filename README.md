@@ -12,7 +12,7 @@ Open `index.html` in a web browser (no build step). The demo also works via any 
 - The demo Manager is assigned permanently to Branch 1. The role selector simulates access for client review.
 - Daily Overview defaults to today in Asia/Dhaka. Monthly Overview and Profit analytics share the selected month. Expenses and customer reports use that month too.
 - A deterministic 90-day sample sales ledger supplies invoices, discounts, refunds, payment methods, item/category performance and gross profit. Revenue and profit include refund reversals. Average invoice is net revenue divided by sales invoice count.
-- Operating profit equals gross profit less expenses. Shared expenses allocate equally to the two branches. Inventory value always reflects current stock at catalog cost.
+- Operating profit equals gross profit less expenses. Every expense belongs to one branch. Combined reports sum the two branches without allocating or splitting expenses. Inventory value always reflects current stock at catalog cost.
 - Owner manages shared categories. Product forms create size/color combinations, unique immutable barcodes, price/cost, VAT metadata and optional local images. Archive keeps historical category references.
 - Inventory supports barcode/SKU lookup, size/color matrices, sample receiving, transfer dispatch/receipt, and label printing from rows and details.
 - POS accepts barcode plus Enter in the scan field. F2 focuses it. Fast HID scans also work when focus is outside editable fields. Other input fields retain normal typing. Repeated scans respect branch stock limits.
@@ -37,11 +37,11 @@ This is an **illustrative static demo**, not a live POS. All data is invented. O
 ## Publish this repository
 
 1. Push to the existing repository's `main` branch.
-2. In **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**.
-3. Open **Actions**, run **Deploy client demo to GitHub Pages** if a deployment did not automatically start.
+2. Keep **Settings → Pages → Build and deployment → Source** set to **Deploy from a branch**, using **main** and **/(root)**.
+3. GitHub runs its branch-based Pages build after a push. Check the Pages build and deployment status.
 4. After deployment succeeds, verify `https://swapnilmahfuz.github.io/fashion-pos-demo/`.
 
-Do not share a guessed URL as verified until GitHub Actions confirms successful deployment.
+Do not share a guessed URL as verified until the Pages build confirms successful deployment.
 
 
 ## Live product after client approval

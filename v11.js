@@ -81,7 +81,7 @@ for (const month of [...new Set(ledger.map(s => s.date.slice(0,7)))]) {
   state.expenses.push(
     {date:month+'-01',title:'Store rent',cat:'Rent',branch:1,amount:48000},
     {date:month+'-01',title:'Store rent',cat:'Rent',branch:2,amount:42000},
-    {date:month+'-03',title:'Shared campaign',cat:'Advertising',branch:0,amount:12000},
+    {date:month+'-03',title:'Gulshan campaign',cat:'Advertising',branch:1,amount:12000},
     {date:month+'-05',title:'Staff salaries',cat:'Payroll',branch:1,amount:22000},
     {date:month+'-05',title:'Staff salaries',cat:'Payroll',branch:2,amount:20000}
   );
@@ -100,8 +100,8 @@ function figures(rows) {
     average:invoices ? round(revenue/invoices) : 0 };
 }
 function expenseAmount(period, branch=curBranch()) {
-  return round(state.expenses.filter(e => e.date.startsWith(period) && (branch==='all'||e.branch===0||e.branch===Number(branch)))
-    .reduce((n,e) => n + e.amount*(branch!=='all'&&e.branch===0 ? .5 : 1),0));
+  return round(state.expenses.filter(e => e.date.startsWith(period) && (branch==='all'||e.branch===Number(branch)))
+    .reduce((n,e) => n + e.amount,0));
 }
 function inventoryValue(branch=curBranch()) {
   return round(products.reduce((n,p) => n + p.cost*(branch==='all' ? p.b1+p.b2 : p['b'+branch]),0));
@@ -179,7 +179,7 @@ function monthlyOverview() {
     section('Branch comparison',table(['Branch','Revenue','Gross profit','Expenses','Operating profit'],(curBranch()==='all'?[1,2]:[Number(curBranch())]).map(b=>{
       const v=figures(rowsFor(state.month,String(b))),e=expenseAmount(state.month,String(b));return [branchLabel(b),money(v.revenue),money(v.profit),money(e),money(v.profit-e)];
     })))+section('Best-selling products',bestSellingTable(rows))+section('Variant sales',itemTable(rows))+section('Category performance',categoryTable(rows))+
-    '<p class="note">Shared expenses are allocated equally between branches. Inventory value is current on-hand cost, independent of the selected reporting month.</p>'+noReal;
+    '<p class="note">Every expense belongs to its recorded branch. Inventory value is current on-hand cost, independent of the selected reporting month.</p>'+noReal;
 }
 finance = monthlyOverview;
 profitFigures = function() {
@@ -187,11 +187,11 @@ profitFigures = function() {
   return {revenue:f.revenue,cogs:round(f.revenue-f.profit),ops,profit:round(f.profit-ops)};
 };
 expenses = function() {
-  const rows=state.expenses.filter(e=>e.date.startsWith(state.month)&&(e.branch===0||scoped(e.branch)));
-  return title('Expense management','Shared expenses allocate 50% to each branch.', '<button class="btn primary" data-action="expense">＋ Add sample expense</button>')+
+  const rows=state.expenses.filter(e=>e.date.startsWith(state.month)&&scoped(e.branch));
+  return title('Expense management','Each expense belongs to one branch.', '<button class="btn primary" data-action="expense">＋ Add sample expense</button>')+
     periodControls(true)+'<div class="grid metrics">'+metric('EXPENSES',money(expenseAmount(state.month)),'Selected month and scope')+'</div>'+
-    section('Expense entries',table(['Date','Description','Category','Scope','Allocated amount'],rows.map(e=>[
-      e.date,slug(e.title),slug(e.cat),e.branch===0?'Shared · 50% per branch':branchLabel(e.branch),money(e.amount*(e.branch===0&&curBranch()!=='all'?.5:1))
+    section('Expense entries',table(['Date','Description','Category','Branch','Amount'],rows.map(e=>[
+      e.date,slug(e.title),slug(e.cat),branchLabel(e.branch),money(e.amount)
     ])))+noReal;
 };
 customers = function() {
