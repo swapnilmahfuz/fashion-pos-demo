@@ -139,8 +139,8 @@ function section(name, content) { return '<section class="card report-section"><
 function chart(name, points, dual=false) {
   const max = Math.max(1,...points.flatMap(p=>[Math.abs(p.revenue),Math.abs(p.profit||0)]));
   return section(name, '<div class="report-chart" role="img" aria-label="'+name+'">'+points.map(p=>
-    '<div class="plot-column" title="'+slug(p.label)+' · Revenue '+money(p.revenue)+(dual?' · Profit '+money(p.profit):'')+'"><div class="plot-bars"><i style="height:'+Math.abs(p.revenue)/max*100+'%;background:'+(p.revenue<0?'#b85649':'#1b4840')+'"></i>'+
-    (dual?'<i class="profit-bar" style="height:'+Math.abs(p.profit)/max*100+'%;background:'+(p.profit<0?'#b85649':'#a9bfae')+'"></i>':'')+'</div><small>'+slug(p.label)+'</small></div>').join('')+'</div><p class="chart-caption">Revenue '+(dual?'· Light green shows gross profit. ':'')+'· Red shows negative values. Hover for amounts. Scroll horizontally for more dates.</p><details><summary>View chart data</summary>'+table(['Time','Revenue',...(dual?['Gross profit']:[])],points.map(p=>[slug(p.label),money(p.revenue),...(dual?[money(p.profit)]:[])]))+'</details>');
+    '<div class="plot-column" title="'+slug(p.label)+' · Revenue '+money(p.revenue)+(dual?' · Profit '+money(p.profit):'')+'"><div class="plot-bars"><i style="height:'+Math.abs(p.revenue)/max*100+'%;background:'+(p.revenue<0?'var(--red)':'var(--accent)')+'"></i>'+
+    (dual?'<i class="profit-bar" style="height:'+Math.abs(p.profit)/max*100+'%;background:'+(p.profit<0?'var(--red)':'var(--accent-deep)')+'"></i>':'')+'</div><small>'+slug(p.label)+'</small></div>').join('')+'</div><p class="chart-caption">Revenue '+(dual?'· Deep brown shows gross profit. ':'')+'· Muted rust shows negative values. Hover for amounts. Scroll horizontally for more dates.</p><details><summary>View chart data</summary>'+table(['Time','Revenue',...(dual?['Gross profit']:[])],points.map(p=>[slug(p.label),money(p.revenue),...(dual?[money(p.profit)]:[])]))+'</details>');
 }
 function exportButton() { return '<button class="btn" data-action="report">↓ Export sample CSV</button>'; }
 function periodControls(monthly) {
