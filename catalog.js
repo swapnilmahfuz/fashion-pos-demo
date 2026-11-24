@@ -40,6 +40,11 @@ function barcodeAllocator(extra=[]) {
     const value=String(number);used.add(value);return value;
   };
 }
+function uniqueCatalogSku(base,reserved=new Set(),excludeId) {
+  let value=base,sequence=2;
+  while(skuInUse(value,excludeId)||reserved.has(value))value=base+'-'+sequence++;
+  return value;
+}
 function categoryOptions(selected) {
   return categories.filter(item=>!item.archived||item.id===Number(selected)).map(item=>
     '<option value="'+item.id+'" '+(item.id===Number(selected)?'selected':'')+'>'+slug(item.name)+(item.archived?' (archived)':'')+'</option>').join('');
@@ -185,9 +190,24 @@ function productForm(groupId) {
     const row=draft[Number(element.dataset.index)];
     row[element.dataset.variantField]=element.type==='checkbox'?element.checked:element.value;
   });
+  const suggestVariant=(variant)=>{
+    const category=categories.find(item=>item.id===Number(input('p-category')));
+    if(!category)return;
+    const reserved=new Set(draft.filter(item=>item!==variant).map(item=>(item.sku||'').trim().toUpperCase()));
+    variant.sku=uniqueCatalogSku(variantSku(category.code,group,variant.color,variant.size),reserved,variant.id);
+    variant.suggestedSku=variant.sku;
+  };
   const showRows=()=>{
     $('#variant-draft').innerHTML=rowsHtml();
     form.querySelectorAll('[data-remove-draft]').forEach(button=>button.onclick=()=>{readRows();draft.splice(Number(button.dataset.removeDraft),1);showRows();});
+    form.querySelectorAll('[data-variant-field]').forEach(element=>element.oninput=()=>{
+      const variant=draft[Number(element.dataset.index)],field=element.dataset.variantField;
+      variant[field]=element.type==='checkbox'?element.checked:element.value;
+      if(!variant.id&&['color','size'].includes(field)&&variant.sku===variant.suggestedSku){
+        suggestVariant(variant);
+        form.querySelector('[data-variant-field=sku][data-index="'+element.dataset.index+'"]').value=variant.sku;
+      }
+    });
   };
   const subOptions=(selected)=>{
     $('#p-subcategory').innerHTML='<option value="">None</option>'+subcategories.filter(item=>item.categoryId===Number(input('p-category'))&&(!item.archived||item.id===selected)).map(item=>'<option value="'+item.id+'" '+(item.id===selected?'selected':'')+'>'+slug(item.name)+(item.archived?' (archived)':'')+'</option>').join('');
@@ -202,16 +222,23 @@ function productForm(groupId) {
     }else availabilityChanges.set(branch,true);
     element.onchange=()=>{element.indeterminate=false;availabilityChanges.set(branch,element.checked);};
   });
-  $('#p-category').onchange=()=>subOptions(null);
+  const refreshCategory=()=>{
+    readRows();subOptions(null);
+    draft.filter(variant=>!variant.id&&variant.sku===variant.suggestedSku).forEach(suggestVariant);
+    showRows();
+  };
+  $('#p-category').onchange=refreshCategory;
   const generate=()=>{
     readRows();
     const category=categories.find(item=>item.id===Number(input('p-category')));
     const sizes=[...new Set(input('p-sizes').split(',').map(value=>value.trim().toUpperCase()).filter(Boolean))];
     const colors=[...new Set(input('p-colors').split(',').map(value=>value.trim()).filter(Boolean))];
-    if(!category||!sizes.length||!colors.length||draft.length+sizes.length*colors.length>50){error('Choose a category, sizes and colors, with up to 50 total variants.');return;}
-    for(const color of colors)for(const size of sizes){
+    const additions=colors.flatMap(color=>sizes.map(size=>({color,size}))).filter(({color,size})=>!draft.some(variant=>variant.color.toLowerCase()===color.toLowerCase()&&variant.size.toLowerCase()===size.toLowerCase()));
+    if(!category||!sizes.length||!colors.length||draft.length+additions.length>50){error('Choose a category, sizes and colors, with up to 50 total variants.');return;}
+    for(const {color,size} of additions){
       if(draft.some(variant=>variant.color.toLowerCase()===color.toLowerCase()&&variant.size.toLowerCase()===size.toLowerCase()))continue;
-      draft.push({id:null,color,size,sku:variantSku(category.code,group,color,size),barcode:allocateBarcode(),buyingPrice:input('p-cost'),price:input('p-price'),active:true});
+      const variant={id:null,color,size,barcode:allocateBarcode(),buyingPrice:input('p-cost'),price:input('p-price'),active:true};
+      suggestVariant(variant);draft.push(variant);
     }
     showRows();error('');
   };
@@ -219,7 +246,7 @@ function productForm(groupId) {
   $('#suggest-skus').onclick=()=>{
     readRows();const category=categories.find(item=>item.id===Number(input('p-category')));
     if(!category)return error('Choose a category first.');
-    draft.forEach(variant=>{variant.sku=variantSku(category.code,group,variant.color,variant.size);});
+    draft.forEach(suggestVariant);
     showRows();
   };
   $('#apply-prices').onclick=()=>{
@@ -233,7 +260,7 @@ function productForm(groupId) {
       $('#taxonomy-error').textContent='Use a unique category name and code of 1–6 letters or digits.';return;
     }
     const category={id:Math.max(...categories.map(item=>item.id))+1,name,code,archived:false};
-    categories.push(category);$('#p-category').innerHTML=categoryOptions(category.id);subOptions(null);$('#taxonomy-error').textContent='Category added.';
+    categories.push(category);$('#p-category').innerHTML=categoryOptions(category.id);refreshCategory();$('#taxonomy-error').textContent='Category added.';
   };
   $('#inline-subcategory-save').onclick=()=>{
     const name=input('new-subcategory-name'),categoryId=Number(input('p-category'));
@@ -573,7 +600,7 @@ function previewCatalogImport(text) {
     if(productGroup.details!==JSON.stringify(details))errors.push('Rows sharing a product key must have matching product details.');
     if(productGroup.combinations.has(combination))errors.push('Duplicate size/color combination in this product.');
     productGroup.combinations.add(combination);
-    const sku=(record.sku||variantSku(category?.code||'NEW',productGroup.id,record.color,record.size)).toUpperCase();
+    const sku=record.sku?record.sku.toUpperCase():uniqueCatalogSku(variantSku(category?.code||'NEW',productGroup.id,record.color,record.size),new Set([...skus,...records.map(item=>(item.sku||'').toUpperCase()).filter(Boolean)]));
     if(!/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(sku)||skuInUse(sku)||skus.has(sku))errors.push('Invalid or duplicate company-wide SKU.');
     skus.add(sku);
     const barcode=record.barcode||allocate();

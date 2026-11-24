@@ -29,7 +29,7 @@ The Phase 1 product Save/receiving behavior was superseded by the Phase 2 catalo
 
 - `catalog.js` adds a dedicated product/catalog layer while retaining the existing shell, sample data, POS, expenses and transfer workflows. Existing product/label handlers were moved out of `v11.js` to avoid conflicting implementations.
 - Add Product and Edit Product share a responsive, accessible modal. Required name/category, optional subcategory, description, pattern/design, up to six photos, sizes/colors, default and per-variant buying/selling prices and inclusive-by-default VAT metadata are supported. New combinations can be added to an existing style. Unsaved draft confirmation remains active.
-- Auto SKU suggestions use stable category codes and sequential product identifiers. Manual SKU entry is checked company-wide, case-insensitively, including historical aliases and removed identities. Existing variant IDs, barcodes, stock and transaction snapshots survive edits. Every new variant receives a unique numeric Code 128 identity.
+- Auto SKU suggestions use stable category codes and sequential product identifiers. New automatic suggestions follow category/size/color changes and receive a unique suffix if abbreviations collide. Manual entries and existing variant SKUs are preserved unless explicitly regenerated. Manual SKU entry is checked company-wide, case-insensitively, including historical aliases and removed identities. Existing variant IDs, barcodes, stock and transaction snapshots survive edits. Every new variant receives a unique numeric Code 128 identity.
 - **Save Product** and **Save & Add Another** create catalog entries with zero stock and no stock movement or purchase. **Save & Receive Stock**, inventory preparations and the existing Purchases action capture intended quantities for a selected branch. Preparations are visible under Purchases. They do not post quantities, purchases, supplier balances or payments.
 - All Products, Stock Report and Low Stock share name/SKU/barcode search and category filters. Rows show variants, per-unit prices, availability, quantity and Owner-only aggregate buying/selling values. Size/color matrices show the selected stock scope. The low-stock threshold is centralized at 5 units. Dead Stock and Defective Stock tabs explicitly identify Phase 5 calculations as upcoming.
 - Owner can activate/deactivate variants and safely remove unused variants. Removal requires zero stock and no sales, movement, transfer or cart references. Removed identities remain reserved. Historical variants can be deactivated. Inactive and unavailable variants cannot be scanned into POS.
@@ -199,7 +199,7 @@ Run `npm ci`, `npx playwright install chromium` and `npm test`. `CHROMIUM_PATH` 
 
 ### Phase 2 automated results
 
-`npm test` runs **26 tests** in Chromium through the native Node test runner. The 11 retained regression tests and 15 Phase 2 tests cover:
+`npm test` runs **27 tests** in Chromium through the native Node test runner. The 11 retained regression tests and 16 Phase 2 tests cover:
 
 - Single/multiple variant creation, per-variant prices, automatic/manual SKU collisions, prior aliases, photos, inline taxonomy and all save actions.
 - Zero stock, unchanged movements/purchases/ledger after saves, imports and receiving preparations, including invalid target/quantity handling.

@@ -234,3 +234,15 @@ test('keyboard HID scans, out-of-stock catalog variants and receiving validation
   await go(page,'purchases');await page.locator('[data-action="purchase"]').click();await page.locator('#receive-variant').selectOption(String(variant.id));await page.locator('[data-receive-quantity]').fill('-2');await page.getByRole('button',{name:'Save receiving preparation'}).click();assert.match(await page.locator('#receive-error').innerText(),/whole quantities/);
   await page.locator('[data-receive-quantity]').fill('5');await page.getByRole('button',{name:'Save receiving preparation'}).click();assert.match(await page.locator('#content').innerText(),/PREP-1/);assert.equal(await page.evaluate(id=>products.find(p=>p.id===id).b1,variant.id),0);
 });
+
+test('new-variant SKU suggestions follow category/attributes, resolve abbreviations and preserve manual/historical entries',async t=>{
+  const page=await session(t);await openProduct(page,'Automatic suggestions');
+  await page.locator('#p-category').selectOption('2');assert.match(await page.locator('[data-variant-field="sku"]').inputValue(),/^HSH-/);
+  await page.locator('[data-variant-field="color"]').fill('Cocoa');await page.locator('[data-variant-field="size"]').fill('XL');assert.match(await page.locator('[data-variant-field="sku"]').inputValue(),/-COCOA-XL$/);
+  await page.locator('[data-variant-field="sku"]').fill('MANUAL-KEEP-001');await page.locator('#p-category').selectOption('3');await page.locator('[data-variant-field="color"]').fill('Sand');assert.equal(await page.locator('[data-variant-field="sku"]').inputValue(),'MANUAL-KEEP-001');
+  await page.locator('#p-sizes').fill('M');await page.locator('#p-colors').fill('Deep Brown, Deep Bronze');await page.locator('#generate-variants').click();
+  const suggested=await page.locator('[data-variant-field="sku"]').evaluateAll(elements=>elements.map(element=>element.value));assert.equal(new Set(suggested).size,3);assert.ok(suggested.some(sku=>sku.endsWith('-2')));await save(page);
+  const product=await page.evaluate(()=>products.find(p=>p.name==='Automatic suggestions'));await page.locator('[data-edit-product="'+product.groupId+'"]').first().click();await page.locator('#p-category').selectOption('4');assert.equal(await page.locator('[data-variant-field="sku"]').first().inputValue(),'MANUAL-KEEP-001');await close(page);
+  const text=await csv(page,[importRow({color:'Deep Brown'}),importRow({color:'Deep Bronze'})]);
+  const imported=await page.evaluate(text=>previewCatalogImport(text),text);assert.ok(imported.every(row=>row.errors.length===0));assert.equal(new Set(imported.map(row=>row.product.sku)).size,2);
+});
