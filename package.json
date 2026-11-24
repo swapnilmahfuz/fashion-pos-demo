@@ -1,0 +1,13 @@
+{
+  "name": "qahaf-fashion-pos-demo",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/phase1.test.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

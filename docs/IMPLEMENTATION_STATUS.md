@@ -1,14 +1,29 @@
 # QAHAF Advanced Fashion POS implementation status
 
-Audited on 24 November 2026 in Asia/Dhaka.
+Audited and updated on 24 November 2026 in Asia/Dhaka. Phase 1 app-shell work is complete for the public sample demo.
 
 ## Audit scope and baseline
 
-This document records Phase 0 against the complete uploaded **QAHAF_POS_MASTER_PHASED_INSTRUCTIONS.txt**, planning baseline 1.0 dated 24 November 2026. The source file contains 21,655 bytes and has SHA-256 `2c86b4b5e3b29f6e694abeca2eb6be17341e2ac86f60c2b5142e7a1ca64835e7`.
+This document records the Phase 0 baseline and Phase 1 delivery against the complete uploaded **QAHAF_POS_MASTER_PHASED_INSTRUCTIONS.txt**, planning baseline 1.0 dated 24 November 2026. The source file contains 21,655 bytes and has SHA-256 `2c86b4b5e3b29f6e694abeca2eb6be17341e2ac86f60c2b5142e7a1ca64835e7`.
 
-The audit covers the current V1.2 demo, including inherited V1.1 functionality and the published neutral palette. The inspected application commit is `3bbf38f42a2d0a23b1bf78424ff885e047c9377e`. The repository is [swapnilmahfuz/fashion-pos-demo](https://github.com/swapnilmahfuz/fashion-pos-demo). The live application is [QAHAF Fashion POS](https://swapnilmahfuz.github.io/fashion-pos-demo/).
+The audit baseline covers V1.2, including inherited V1.1 functionality and the neutral palette. Phase 1 builds on the Phase 0 documentation commit `5c83a4218010d70e394f1c804241d103e418e5ad`. The inspected application commit is `3bbf38f42a2d0a23b1bf78424ff885e047c9377e`. The repository is [swapnilmahfuz/fashion-pos-demo](https://github.com/swapnilmahfuz/fashion-pos-demo). The live application is [QAHAF Fashion POS](https://swapnilmahfuz.github.io/fashion-pos-demo/).
 
-Phase 0 includes repository inspection, requirements comparison, test execution, deployment inspection and this documentation. Application source, sample data, financial calculations and configuration are preserved. Later implementation phases require a further user instruction.
+Phase 0 documented the baseline. Phase 1 updates branding configuration, the shell, grouped navigation, branch context, browser-role controls, dialog accessibility and existing export scope. Product/stock/sales/expense calculations and sample quantities retain their established behavior. Phase 2 and later business workflows require a further user instruction.
+
+## Phase 1 delivery
+
+- Shared `config.js` defines branding, branches, Manager assignment, currency/timezone context and navigation. `style.css` holds design tokens.
+- The sidebar groups Dashboard, Monthly Overview, POS & Sales, Products & Inventory, Purchases, Stock Transfers, Expenses, Contacts, Reports, Marketing and Settings. Inventory, Products and Categories use contextual tabs with keyboard navigation.
+- Damage & Dead Stock and Funds & Accounts are passive planned labels for Phases 5 and 6. Financial navigation is filtered for Manager.
+- The persistent top header shows browser role simulation and branch scope. Each page title displays the active branch.
+- Owner retains Combined and both branches. Manager is assigned to New Market through configuration. Product-entry stock targets follow a specific global scope; Owner can explicitly choose a target while in Combined.
+- Monthly financial analytics, financial dashboard columns, inventory aggregate cost and report exports are Owner-preview-only. Operational buying-cost fields remain available where needed for existing product/receiving workflows. Role simulation uses public sample data.
+- Role/branch changes ask before clearing a populated cart, then reset its checkout fields. Navigation between operational screens preserves the cart.
+- Dialogs have accessible names, branch context, focus trapping/restoration, background inertness, Escape/overlay handling and dirty-form discard confirmation. Edited forms also request browser unload confirmation.
+- Owner expense and contact CSVs now contain the selected branch/month rows. Existing sales and financial exports retain their scoped sample calculations.
+- Reproducible browser tests are tracked in `tests/phase1.test.cjs`, with a pinned development dependency and lockfile. Run instructions are in README.
+
+The current product Save behavior, purchase accounting, weighted-average costing, VAT engine, funds/dues, returns and stock-class gaps remain assigned to their later phases.
 
 ### Status definitions
 
@@ -21,10 +36,10 @@ Phase 0 includes repository inspection, requirements comparison, test execution,
 
 | Area | Current implementation and evidence |
 | --- | --- |
-| Entry point | `index.html` loads `style.css`, `app.js`, the bundled JsBarcode library and `v11.js` in that order. |
+| Entry point | `index.html` loads shared `config.js`, `app.js`, the bundled JsBarcode library, `v11.js` and `shell.js`. Styles load from `style.css`. |
 | Original shell | `app.js` contains navigation, state, sample products, POS/cart, common modal helpers and original screen implementations. |
 | Active enhancements | `v11.js` adds V1.1/V1.2 functionality by replacing several global functions. The filename continues to cover the active V1.2 application. |
-| Rendering | Direct DOM rendering with HTML strings and event handlers. Navigation is in-memory, with twelve sidebar entries. Monthly Overview and Profit analytics currently use the same screen implementation. |
+| Rendering | Direct DOM rendering with HTML strings and event handlers. Navigation is in-memory, with grouped module entries and contextual product tabs. Owner Monthly Overview and Reports reuse the established monthly report calculations. Marketing reuses the offer-copy action. |
 | Product identity | Stable numeric variant `id` and product `groupId`; company-wide SKUs, historical SKU aliases and immutable generated barcodes. Quantities are `b1` and `b2`. |
 | Operational data | Mutable JavaScript arrays for products, sales/refunds, expenses, purchases, transfers and stock movements. Each browser session starts from generated sample data. |
 | Persistence | Owner branch preference uses localStorage, including migration from the earlier preference key. Operational changes, uploaded images, edited SKUs and transactions reset on refresh. |
@@ -32,9 +47,9 @@ Phase 0 includes repository inspection, requirements comparison, test execution,
 | Styling | Charcoal, cream, cocoa, sand and taupe tokens; responsive sidebar/top header; scrollable tables, large product modal and print styles. Fonts are loaded from Google Fonts with fallbacks. |
 | Barcode dependency | JsBarcode 3.12.1 is bundled locally with its MIT license. Code 128 generation runs in the browser. |
 | Backend and deployment | Static GitHub Pages. The repository contains no PHP/API implementation, database, server authentication, payment integration, service worker or durable transaction store. |
-| Test packaging | No tracked test suite, package manifest, test runner configuration or CI test workflow exists. Existing browser harnesses remain in the Codex workspace outside the repository. |
+| Test packaging | A native Node test runner plus pinned Playwright dependency is tracked in `package.json`, `package-lock.json` and `tests/phase1.test.cjs`. No custom Actions workflow is introduced. |
 
-The global-function replacement approach makes load order significant. Some older implementations and placeholder copy remain in `app.js` while active behavior comes from `v11.js`. Source searches alone can therefore overstate functionality. Branding, branch names and configuration also appear in multiple functions instead of one centralized configuration.
+The global-function replacement approach makes load order significant. Some older implementations and placeholder copy remain in `app.js` while active behavior comes from `v11.js`. Source searches alone can therefore overstate functionality. Identity, branch names and shell configuration now come from `config.js`. Existing business implementations remain in the original scripts.
 
 ### Reproducible sample baseline
 
@@ -47,14 +62,14 @@ These values describe invented data generated by the application. The date distr
 | Master phase | Status | Completed components already present | Partial or pending requirements |
 | --- | --- | --- | --- |
 | **0 — Baseline / audit / safety** | **Completed audit** | Full specification read, repository and live assets inspected, architecture mapped, existing harnesses run, four viewport sizes checked, deployment/authentication inspected, findings documented here. | This documentation is the sole repository change. Publication evidence for its commit is reported in the phase completion response and GitHub Pages run history. |
-| **1 — Branding, design system, shell and navigation** | **Partial** | QAHAF branding, New Market/Dakbangla names, premium neutral tokens, responsive shell, sticky branch selector, persistent Owner scope, assigned Manager scope and twelve accessible screen entry points. | Branch scope beside every page title, grouped navigation, configurable manager assignments, Owner-only financial/security controls, centralized configuration and comprehensive accessibility validation. |
+| **1 — Branding, design system, shell and navigation** | **Completed demo scope** | Central identity/design tokens, grouped navigation, product tabs, four viewport sizes, persistent header scope and title badges, assigned Manager operations, Owner-only financial routes/exports, accessible dialogs and repository tests. | Production authorization, account-management UI and a comprehensive independent accessibility audit remain later-phase work. |
 | **2 — Product master, categories, variants, SKU and barcode** | **Partial** | Owner category create/rename/archive/reorder; both roles can add categories inline. Product name/description, one optional image, sizes/colors, costs/prices and VAT metadata. Multi-variant auto/manual SKUs, duplicate checks, historical SKU aliases, stable IDs, barcode lookup, matrices, print/reprint and all three current save actions. | Catalog-only Save conflicts with current initial-stock creation. Save & Receive hook, subcategories, patterns, multiple images, full product editing/status, branch availability management, bulk price/branch actions, safe deletion and product import/export. Barcode values are generated internally; manual barcode entry is absent. |
 | **3 — Supplier purchases, receiving and cost basis** | **Partial** | Single-variant receiving increases only the selected branch, records a quantity movement and adds an aggregate supplier receipt row. Product creation can record initial stock movements. | Item-linked multi-product purchase invoices, actual per-line purchase costs, discounts/VAT/landing costs, supplier master, unique supplier invoice checks, payments/dues, returns, cost-bearing opening imports and branch-specific moving weighted-average cost. |
 | **4 — Fast POS, invoices, discounts and returns** | **Partial** | Barcode plus Enter, repeated scans, scanner focus protection, stock limits, search, cart quantities, invoice flat/percentage discount, allocated line discount rounding, single payment-method selection, stock reduction, sample receipt and browser printing. | Tax calculation, line discounts, campaigns/priority rules, Cash Box/custom accounts, split tender, credit/dues, customer linkage, invoice history/reprint, linked returns/exchanges, defective disposition, audit simulation and explicit thermal/A4 templates. Optional holds/imports are absent. |
 | **5 — Transfers, dead stock, defects and adjustments** | **Partial** | Newly created single-variant transfers dispatch units from source, hold an in-transit record and allow destination receipt. Transfers create no sales revenue. | Complete seeded-transfer linkage, cost-basis transfer, freight/challan, multiple items, discrepancy handling, dead-stock thresholds/ages, sellable versus quarantine stock, repair/recovery/write-off and auditable adjustments. |
 | **6 — Expenses, funds, cash flow and dues** | **Partial** | Monthly expense list and Add popup, positive-amount validation, mandatory branch assignment, branch totals and Combined summation. | Today/custom ranges and category filters, expense editing, managed categories, receipt attachment, account/payment status, lock/reversal policies, Cash Box per branch, named accounts, deposits/withdrawals/transfers, statements, collections, dues and financial-position/cash-flow reconciliation. |
 | **7 — Financial analytics, reports and exports** | **Partial** | Date-specific seven-KPI overview, hourly chart, item/category/payment breakdowns; separate monthly tab, daily revenue/profit chart, product/category performance, branch comparison, gross profit less expenses, current buying-value estimate and generic CSV export. | Full Home KPI depth, inventory selling value/potential profit, historical opening/closing valuation, advanced P&L adjustments, six profit subviews, all report types below, consistent view-specific exports, custom date ranges, Excel/PDF and report print layouts. Allocated contribution estimation is absent from the active screen. |
-| **8 — Contacts, marketing, settings and demo hardening** | **Partial** | Four sample customers, branch/month activity and consent flags; offer-text copy modal; role-preview settings and demo notices. Optional product image is supported. | Editable customer/supplier masters, groups/birthdays, consented recipient export and WhatsApp sharing, SMS template/group/history UI, comprehensive settings, unsaved-work protection and the complete client journey through purchases, returns, funds and P&L. |
+| **8 — Contacts, marketing, settings and demo hardening** | **Partial** | Four sample customers, branch/month activity and consent flags; offer-text copy modal; role-preview settings and demo notices. Optional product image is supported. | Editable customer/supplier masters, groups/birthdays, consented recipient export and WhatsApp sharing, SMS template/group/history UI, comprehensive settings and the complete client journey through purchases, returns, funds and P&L. |
 | **9 — Client sign-off and production technical design** | **Pending** | README mentions a possible PHP/Laravel, MySQL/MariaDB and Vue direction. | Written sign-off, confirmed cPanel capabilities and approved schemas, security, ledger, hosting, backup, provider and rollout design. The README direction is preliminary. |
 | **10 — Production backend foundations** | **Pending** | No production backend components are implemented. | Approved PHP 8.2+/database foundation, secure sessions, Owner/Manager authorization, APIs, migrations, audit and backups. |
 | **11 — Production operations and accounting** | **Pending** | Browser simulations provide interaction examples. | Atomic receiving/sales/returns/funds, average-cost accounting, server calculations, idempotency, concurrency and staging reconciliation/security tests. |
@@ -65,9 +80,9 @@ These values describe invented data generated by the application. The date distr
 
 | Master requirement | Current finding | Status / relevant phase |
 | --- | --- | --- |
-| Exactly Owner and Manager | Two preview profiles exist. Manager is hard-coded to New Market; Owner selects Combined or either branch. Account creation/assignment is absent. | Partial, 1 / 8 / 10 |
-| Branch context on every surface | Header scope is persistent and active lists/aggregations generally follow it. Product/category definitions are shared company data. Page titles omit their branch scope. | Partial, 1 |
-| Owner-only financial/security defaults | Manager can open Profit analytics and export its branch financial figures. The role selector is publicly switchable. | Gap, 1 / 8 / 10 |
+| Exactly Owner and Manager | Two preview profiles exist. Manager assignment is configured as New Market; Owner selects Combined or either branch. Account creation/assignment is absent. | Partial, 1 / 8 / 10 |
+| Branch context on every surface | Header scope is persistent and active lists/aggregations generally follow it. Product/category definitions are shared company data. Page titles now display their branch scope. | Completed demo rule, 1 |
+| Owner-only financial/security defaults | Manager financial routes, analytic columns and report exports are guarded in the UI. The header explicitly identifies the publicly switchable role simulation. Production authorization remains pending. | Completed demo rule, 1; backend pending, 10 |
 | Branch-only expense ownership | Every active sample expense has branch 1 or 2. Combined equals the two branches added together. No overhead split is applied. | Completed demo rule, retain in 6 / 7 |
 | Catalog-only Save; linked Save & Receive | Saving a product with initial quantity creates stock and a movement without creating a purchase document. The current buttons are Save, Save & Add Another and Save & Print Barcode. | Conflict, 2 / 3 |
 | Supplier quantities and costs tied to purchases | Receiving rows contain `id`, `supplier`, `branch`, `items` and `total`. They lack variant lines, invoice references, payment state and cost snapshots. Stock movements contain a variant but no receipt ID. | Gap, 3 |
@@ -87,7 +102,7 @@ These gaps are recorded for later phases. This audit preserves the branch expens
 
 ## Required report inventory
 
-The active export action produces one generic selected-period summary followed by sales lines. Dedicated report labels and advanced views require further implementation.
+Owner sales/financial exports produce the selected-period summary and sales lines. Expense and contact exports now use their corresponding visible datasets. Dedicated advanced report views require further implementation.
 
 | Required report | Current coverage | Status |
 | --- | --- | --- |
@@ -95,7 +110,7 @@ The active export action produces one generic selected-period summary followed b
 | Product Sell | Daily/monthly item and product tables. | Partial |
 | Sales Representative | No agent role or representative report. Master marks this optional/inactive where inapplicable. | Pending |
 | Register | No operational register or money-account register. | Pending |
-| Expense | Monthly list and total; export lacks expense line records. | Partial |
+| Expense | Monthly list, total and scoped expense-line CSV. | Partial |
 | Due Payment | No payable settlement workflow/report. | Pending |
 | Due Collection | No customer collection workflow/report. | Pending |
 | Sell Payment | Daily payment-method revenue breakdown, without received-payment or fund ledger. | Partial |
@@ -113,15 +128,15 @@ The active export action produces one generic selected-period summary followed b
 | Tax | No calculated tax report. | Pending |
 | Activity Log | No general audit-log screen/report. | Pending |
 
-Required profit subviews by Product and Category have table building blocks. Invoice, Date, Customer and Day-of-Week profit subviews are pending. The daily/monthly charts provide some date aggregation. CSV scope is branch/date filtered for its underlying sales dataset. Native Excel, generated PDF, dedicated report printing and pagination are pending. Browser receipt printing and barcode printing are working separate flows.
+Required profit subviews by Product and Category have table building blocks. Invoice, Date, Customer and Day-of-Week profit subviews are pending. The daily/monthly charts provide some date aggregation. CSV scope is branch/date filtered for its underlying dataset. Financial, expense and contact exports are Owner-preview-only. Native Excel, generated PDF, dedicated report printing and pagination are pending. Browser receipt printing and barcode printing are working separate flows.
 
 ## Confirmed unfinished interactions and acceptance gaps
 
 1. **Save creates stock without a supplier purchase.** A one-variant product saved with two initial units added two branch units and zero purchase documents. Reproduced through the UI.
-2. **Expense export differs from the visible expense list.** Its CSV contained the generic sales-line header and omitted the visible Store rent entry. Customer exports use the same generic exporter. View-specific line exports remain required.
-3. **Financial report permission differs from the master default.** Manager could open Profit analytics and access its export button. This is a browser preview behavior.
+2. **Resolved in Phase 1 — existing expense/contact export scope.** CSVs now contain the visible branch/month expense or contact rows. Advanced report exports remain Phase 7.
+3. **Resolved in Phase 1 — financial preview permission.** Manager cannot enter monthly financial analytics or Reports, see their analytic columns or use report exports. This remains browser-only simulation.
 4. **Seeded transfer cannot complete receiving.** Seeded in-transit transfer `TR-018` lacks `productId`; the inbound receiving action filters for that field. Newly created transfers passed dispatch/receive tests.
-5. **Unsaved product work is discarded.** Entering a product name, pressing Escape and reopening the form produced an empty form, without confirmation. Overlay dismissal follows the same close helper. Modal focus trapping and dialog semantics also require review.
+5. **Resolved in Phase 1 — affected dialog drafts.** Escape, overlay, Cancel and guarded dialog navigation ask before discarding edited fields. Keep editing preserves the draft. Focus traps, dialog names, inert background and focus restoration are tested.
 6. **Checkout does not link a real customer record.** The optional phone input exists, while newly generated sales use `customerId: null` and clear the typed value. Seeded customer activity does not establish a working customer-assignment flow.
 7. **Operational records have different completeness levels.** Seeded purchase totals and transfers are illustrative aggregate rows. Initial stock, receipts and transfers cannot be reconciled into supplier balances or a complete cost ledger.
 8. **Date defaults are session-bound.** The Dhaka date is computed once when the page loads. An open tab does not automatically roll to the next business date at midnight.
@@ -132,7 +147,7 @@ Required profit subviews by Product and Category have table building blocks. Inv
 
 ### Existing tests run
 
-The tracked repository contains no executable automated test suite. Six existing workspace browser harnesses from earlier demo iterations were rerun with Node.js, Playwright and installed Chromium. Temporary copies changed only the local server port to 8775. No tests or dependencies were added to the repository.
+Phase 0 reran six workspace harnesses. Phase 1 now adds the reproducible repository suite described below. The historical harness results are retained as baseline evidence.
 
 | Check | Result | Coverage and limit |
 | --- | --- | --- |
@@ -145,7 +160,21 @@ The tracked repository contains no executable automated test suite. Six existing
 | `test-palette.cjs` | PASS | Palette tokens, all screen routes, charts, forms, barcode-cart smoke test and responsive rendering. |
 | Additional audit probes | PASS as observations | Captured the reproducible gaps above, including Save stock creation, missing receipt fields, export mismatch, Manager financial access and unsaved-draft loss. Their observed behavior fails the corresponding future acceptance requirements. |
 | Live assets | PASS | HTTP 200 for the live page, scripts, CSS and barcode library. JavaScript/CSS/library bytes matched the inspected baseline. |
-| Repository scope | Documentation only | Application preservation is checked with Git diff before publication. |
+| Phase 0 repository scope | Documentation only | Preserved in its audit commit. Phase 1 changes are listed above. |
+
+### Phase 1 automated results
+
+`npm test` passes **11 tests** with Node, Playwright and Chromium.
+
+- Four viewport cases cover 1440×1000, 1024×768, 390×844 and 360×800. All working routes and contextual tabs open without page overflow or browser exceptions. The mobile drawer supports keyboard dismissal and restores focus.
+- Owner branch/date filters, Combined reconciliation and financial, expense and contact CSVs match their selected scope.
+- Manager routes and exports are checked through both visible controls and attempted direct shell calls. Assigned-branch scope is restored. Operational forms and labels remain accessible.
+- Dirty drafts, confirmation focus, Tab/Shift+Tab, Escape, overlay dismissal, focus restoration and navigation protection pass.
+- Barcode repeat/unknown/quantity-limit behavior, typing in checkout fields, scope-change cart confirmation, discount checkout and receipt print media pass.
+- Existing product variations, company-wide SKU duplication checks, Manager creation, receiving, transfer receipt, expense isolation and barcode print media pass.
+- Central configuration checks and text contrast checks pass. Tests use the existing sample finance model and preserve its baseline quantities.
+
+Run `npm ci`, `npx playwright install chromium` and `npm test`. `CHROMIUM_PATH` can select an installed browser. The test server starts automatically under a project subpath. No application build step is required. Physical hardware and production security remain outside these browser checks.
 
 ### Desktop and mobile
 
@@ -167,14 +196,14 @@ These tests verify the current simplified sample model. Average-cost calculation
 - The inspected baseline build succeeded for `3bbf38f42a2d0a23b1bf78424ff885e047c9377e`, run `45156494426`.
 - GitHub authenticated as `swapnilmahfuz`. The selected ChatGPT/Codex App installation reported contents, actions and workflows write permissions.
 - Authorized publishing uses the previously successful command `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main`. Credential values are kept out of output.
-- This Phase 0 publication adds only `docs/IMPLEMENTATION_STATUS.md`. The documentation commit SHA, its push result and its managed Pages deployment result are reported in the completion response. Live application asset equality is checked again after publication.
+- Phase 0 published its documentation commit. Phase 1 publishes shell/configuration, existing screen integration, tests and documentation through the same branch-based Pages setup. The final Phase 1 commit, managed build result and live-asset comparison are reported in the phase completion response.
 
 ## Phase boundary and decisions for subsequent work
 
-Phase 0 establishes the baseline and records existing behavior against the master specification. Existing later-phase building blocks remain part of V1.2.
+Phase 0 established the baseline. Phase 1 completes the authorized app-shell scope. Existing later-phase business building blocks remain part of V1.2.
 
 The master document already resolves the important business rules for later implementation. Product Save becomes catalog-only, receiving links supplier purchases, costs use per-branch moving weighted averages, expenses remain wholly branch-owned and VAT is separated from revenue. Their implementation belongs to the designated later phases.
 
-Approval to execute Phase 1 is the next required instruction. Tax rates/statutory formats, optional sales-representative applicability and production hosting/providers/sign-off remain business decisions for their scheduled phases.
+Approval to execute Phase 2 is the next required instruction. Tax rates/statutory formats, optional sales-representative applicability and production hosting/providers/sign-off remain business decisions for their scheduled phases.
 
-**STOP at Phase 0. Phase 1 requires explicit user authorization.**
+**STOP after Phase 1. Phase 2 requires explicit user authorization.**

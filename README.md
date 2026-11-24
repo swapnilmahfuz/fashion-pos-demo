@@ -6,6 +6,28 @@ An interactive, sample-data-only browser prototype for a two-branch menswear POS
 
 Open `index.html` in a web browser (no build step). The demo also works via any static HTTP server.
 
+## Phase 1 app shell
+
+The grouped sidebar preserves the existing operational screens. Products & Inventory has Inventory, Products and Categories tabs. Marketing exposes the existing offer-text copy workflow. Damage & Dead Stock and Funds & Accounts have planned labels. Monthly Overview, Reports and CSV exports belong to the Owner preview. Managers retain operational access in their assigned branch.
+
+The header identifies browser-only role simulation. Every page title shows its branch scope. `config.js` centralizes identity, branch names, assignment and navigation. Design tokens remain in `style.css`.
+
+Dialogs support focus trapping, keyboard dismissal, focus restoration and confirmation before discarding edited forms. A role/branch change asks before clearing a populated cart.
+
+## Run automated checks
+
+Use Node.js 20 or later.
+
+```sh
+npm ci
+npx playwright install chromium
+npm test
+```
+
+The tests start a local static server and check desktop 1440/1024 and mobile 390/360 layouts. Set `CHROMIUM_PATH` to an installed Chromium executable when needed. `QAHAF_BASE_URL` can target an existing server. Browser checks create sample transactions in their own contexts.
+
+The application still opens as a static site. Node.js is used for development tests. Hardware scanner/printer acceptance and production authentication remain scheduled for the later approved phases.
+
 ## V1.2 client review
 
 - Owner branch selection persists in this browser. Combined, New Market, and Dakbangla apply across screens and CSV reports.
@@ -26,7 +48,7 @@ Open `index.html` in a web browser (no build step). The demo also works via any 
 - Sample dashboards, product variants, unique example barcodes, stock, purchasing, transfers, expenses, profitability, customers and settings.
 - Sample checkout: add products, scan example barcodes via typing/keyboard, change quantities, discount flat or %, preview a non-tax sample receipt and use browser print.
 - Sample expenses and transfer/purchasing requests, local only until refresh.
-- Sample report CSV export.
+- Owner report CSV export. Expense and contact exports follow their visible branch/month datasets.
 
 Physical USB scanner and printer validation requires the demonstration hardware. Keyboard scan simulation and browser print layouts can be tested in Chromium. VAT mode is catalog metadata. Report prices are illustrative net-of-VAT amounts. Only the Owner branch preference persists locally.
 

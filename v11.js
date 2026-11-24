@@ -1,16 +1,13 @@
 // V1.1 extends the original demo shell and operational screens.
-const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const today = new Intl.DateTimeFormat('en-CA', { timeZone: APP_CONFIG.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const categories = ['Polo','Half Shirt','Check Shirt','Formal Shirt','T-Shirt','Jeans','Chinos','Panjabi','Jacket'].map((name, i) => ({ id: i + 1, name, archived: false }));
 const categoryName = id => categories.find(c => c.id === id)?.name || 'Archived category';
 const round = n => Math.round((n + Number.EPSILON) * 100) / 100;
-const assignedBranch = '1';
+const assignedBranch = APP_CONFIG.managerBranch;
 let ownerBranch = 'all';
-try { ownerBranch = localStorage.getItem('qahaf-owner-branch') || localStorage.getItem('thread-owner-branch') || 'all'; } catch {}
+try { ownerBranch = localStorage.getItem(APP_CONFIG.branchPreferenceKey) || localStorage.getItem('thread-owner-branch') || 'all'; } catch {}
 if (!['all','1','2'].includes(ownerBranch)) ownerBranch = 'all';
 Object.assign(state, { branch: ownerBranch, date: today, month: today.slice(0,7), labelVariant: 1 });
-navItems[0][1] = 'Daily Overview';
-navItems.splice(1, 0, ['monthly', 'Monthly Overview']);
-navItems.splice(4, 0, ['categories', 'Categories']);
 icons.monthly = '▦';
 icons.categories = '≡';
 products.forEach(p => {
@@ -106,7 +103,7 @@ for (const month of [...new Set(ledger.map(s => s.date.slice(0,7)))]) {
   state.expenses.push(
     {date:month+'-01',title:'Store rent',cat:'Rent',branch:1,amount:48000},
     {date:month+'-01',title:'Store rent',cat:'Rent',branch:2,amount:42000},
-    {date:month+'-03',title:'New Market campaign',cat:'Advertising',branch:1,amount:12000},
+    {date:month+'-03',title:branchLabel(1)+' campaign',cat:'Advertising',branch:1,amount:12000},
     {date:month+'-05',title:'Staff salaries',cat:'Payroll',branch:1,amount:22000},
     {date:month+'-05',title:'Staff salaries',cat:'Payroll',branch:2,amount:20000}
   );
@@ -142,7 +139,7 @@ function chart(name, points, dual=false) {
     '<div class="plot-column" title="'+slug(p.label)+' · Revenue '+money(p.revenue)+(dual?' · Profit '+money(p.profit):'')+'"><div class="plot-bars"><i style="height:'+Math.abs(p.revenue)/max*100+'%;background:'+(p.revenue<0?'var(--red)':'var(--accent)')+'"></i>'+
     (dual?'<i class="profit-bar" style="height:'+Math.abs(p.profit)/max*100+'%;background:'+(p.profit<0?'var(--red)':'var(--accent-deep)')+'"></i>':'')+'</div><small>'+slug(p.label)+'</small></div>').join('')+'</div><p class="chart-caption">Revenue '+(dual?'· Deep brown shows gross profit. ':'')+'· Muted rust shows negative values. Hover for amounts. Scroll horizontally for more dates.</p><details><summary>View chart data</summary>'+table(['Time','Revenue',...(dual?['Gross profit']:[])],points.map(p=>[slug(p.label),money(p.revenue),...(dual?[money(p.profit)]:[])]))+'</details>');
 }
-function exportButton() { return '<button class="btn" data-action="report">↓ Export sample CSV</button>'; }
+function exportButton() { return state.role==='owner' ? '<button class="btn" data-action="report">↓ Export sample CSV</button>' : ''; }
 function periodControls(monthly) {
   return '<div class="toolbar"><label for="report-period">'+(monthly?'Month / year':'Date')+'</label><input class="input" id="report-period" type="'+(monthly?'month':'date')+'" value="'+(monthly?state.month:state.date)+'">'+exportButton()+'</div>';
 }
@@ -156,30 +153,30 @@ function groupedLines(rows) {
   return [...grouped.values()].sort((a,b)=>b.qty-a.qty);
 }
 function itemTable(rows) {
-  return table(['Category','Product','Variant','Net units','Net revenue','Gross profit'],groupedLines(rows).map(l=>{
+  return table(['Category','Product','Variant','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],groupedLines(rows).map(l=>{
     const p=products.find(p=>p.id===l.productId);
-    return [slug(categoryName(p.categoryId)),slug(p.name),slug(p.color+' / '+p.size),l.qty,money(l.revenue),money(l.profit)];
+    return [slug(categoryName(p.categoryId)),slug(p.name),slug(p.color+' / '+p.size),l.qty,money(l.revenue),...(state.role==='owner'?[money(l.profit)]:[])];
   }));
 }
 function categoryTable(rows) {
-  return table(['Category','Net units','Net revenue','Gross profit'],categories.map(c=>{
+  return table(['Category','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],categories.map(c=>{
     const lines=rows.map(s=>({...s,lines:s.lines.filter(l=>products.find(p=>p.id===l.productId).categoryId===c.id)}));
     const f=figures(lines);
     const qty=lines.flatMap(s=>s.lines).reduce((n,l)=>n+l.qty*(l.refund?-1:1),0);
-    return [slug(c.name),qty,money(f.revenue),money(f.profit)];
+    return [slug(c.name),qty,money(f.revenue),...(state.role==='owner'?[money(f.profit)]:[])];
   }));
 }
 overview = function() {
   const rows=rowsFor(state.date), f=figures(rows);
-  return title('Daily overview','Sample sales for the selected day and branch.')+periodControls(false)+
+  return title('Dashboard','Sample sales for the selected day and branch.')+periodControls(false)+
     '<div class="grid metrics">'+[
-      ['SALES REVENUE',money(f.revenue)],['INVOICES',f.invoices],['ITEMS SOLD',f.items],['GROSS PROFIT',money(f.profit)],
+      ['SALES REVENUE',money(f.revenue)],['INVOICES',f.invoices],['ITEMS SOLD',f.items],...(state.role==='owner'?[['GROSS PROFIT',money(f.profit)]]:[]),
       ['DISCOUNTS',money(f.discounts)],['REFUNDS',money(f.refunds)],['AVERAGE INVOICE',money(f.average)]
     ].map(([name,value])=>metric(name,value,'Selected date')).join('')+'</div>'+
     chart('Hourly net sales',Array.from({length:24},(_,hour)=>({label:String(hour).padStart(2,'0'),revenue:figures(rows.filter(s=>s.hour===hour)).revenue})))+
     section('Item-wise sales',itemTable(rows))+section('Category performance',categoryTable(rows))+
     section('Payment methods',table(['Method','Net revenue'],methods.map(m=>[m,money(figures(rows.filter(s=>s.method===m)).revenue)])))+
-    '<p class="note">Revenue and gross profit include refund reversals. Items sold count outbound units. Average invoice is net revenue divided by sales invoice count. All amounts are illustrative, net of VAT.</p>'+noReal;
+    '<p class="note">Revenue includes refund reversals. Gross profit is shown in the Owner preview. Items sold count outbound units. Average invoice is net revenue divided by sales invoice count. All amounts are illustrative, net of VAT.</p>'+noReal;
 };
 function bestSellingTable(rows) {
   const groups = new Map();
@@ -195,6 +192,7 @@ function bestSellingTable(rows) {
     .sort((a,b) => b.qty-a.qty).map(p => [slug(p.name),p.qty,money(p.revenue),money(p.profit)]));
 }
 function monthlyOverview() {
+  if(state.role!=='owner') return ownerOnlyPage();
   const rows=rowsFor(state.month),f=figures(rows),expenses=expenseAmount(state.month);
   const days=new Date(Number(state.month.slice(0,4)),Number(state.month.slice(5,7)),0).getDate();
   return title('Monthly overview','Sales, costs and branch performance from the same sample ledger.')+periodControls(true)+
@@ -226,27 +224,8 @@ customers = function() {
       const f=figures(rows.filter(s=>s.customerId===c.id));return [slug(c.name),c.phone,branchLabel(c.branch),f.invoices,money(f.revenue),c.consent?'Yes':'No'];
     })))+noReal;
 };
-const originalControls=controls;
-controls = function() {
-  if(state.role==='manager') state.branch=assignedBranch;
-  originalControls();
-  const branch=$('#branch');
-  branch.innerHTML=state.role==='manager'?'<option value="1">New Market (assigned)</option>':
-    '<option value="all">Combined</option><option value="1">New Market</option><option value="2">Dakbangla</option>';
-  branch.value=state.branch;
-  branch.disabled=state.role==='manager';
-  $('#role').onchange=e=>{
-    state.role=e.target.value;state.branch=state.role==='manager'?assignedBranch:ownerBranch;state.cart=[];closeModal();render();
-  };
-  branch.onchange=e=>{
-    if(state.role==='manager')return;
-    ownerBranch=e.target.value;state.branch=ownerBranch;state.cart=[];closeModal();
-    try {localStorage.setItem('qahaf-owner-branch',ownerBranch);} catch {}
-    render();
-  };
-};
 function requireBranch() {
-  if(curBranch()==='all'){notify('Select New Market or Dakbangla for this operation');return false;}return true;
+  if(curBranch()==='all'){notify('Select '+APP_CONFIG.branches.map(branch=>branch.name).join(' or ')+' for this operation');return false;}return true;
 }
 const originalAddCart=addCart;
 addCart = function(id) {
@@ -302,10 +281,10 @@ inventory = function() {
   const exact=products.find(p=>matchesVariant(p,state.search.trim()))||products.find(p=>p.style.toLowerCase()===term);
   const styles=[...new Set(list.map(p=>p.style))];
   return title('Inventory control','Scan or search to locate an exact variant and all size / color availability.','<div class="actions"><button class="btn primary" data-action="product-form">＋ Add New Product</button><button class="btn" data-v11="receive">＋ Receive sample stock</button></div>')+
-    '<div class="grid metrics">'+metric('ON-HAND UNITS',products.reduce((n,p)=>n+stock(p),0),'Selected branch scope')+metric('INVENTORY VALUE',money(inventoryValue()),'Current cost')+'</div>'+
+    '<div class="grid metrics">'+metric('ON-HAND UNITS',products.reduce((n,p)=>n+stock(p),0),'Selected branch scope')+(state.role==='owner'?metric('INVENTORY VALUE',money(inventoryValue()),'Current cost'):'')+'</div>'+
     '<div class="toolbar"><input id="table-search" class="search" aria-label="Inventory barcode or SKU" placeholder="Scan barcode + Enter or search SKU" value="'+slug(state.search)+'"></div>'+
     (exact?section(matchesVariant(exact,state.search.trim())?'Exact match':'Style availability', '<b>'+slug(exact.name+' · '+exact.color+' / '+exact.size)+'</b><p>'+slug(exact.sku)+' · '+stock(exact)+' units in selected scope · '+exact.barcode+'</p>'+variantButtons(exact)+matrix(exact)):'')+
-    section('Stock by variant',table(['Product','SKU','Color / Size','Barcode',...(curBranch()==='all'?['New Market','Dakbangla']:[]),'Available','Actions'],list.map(p=>[
+    section('Stock by variant',table(['Product','SKU','Color / Size','Barcode',...(curBranch()==='all'?APP_CONFIG.branches.map(branch=>branch.name):[]),'Available','Actions'],list.map(p=>[
       slug(p.name),slug(p.sku),slug(p.color+' / '+p.size),p.barcode,...(curBranch()==='all'?[p.b1,p.b2]:[]),stock(p),variantButtons(p)
     ])))+styles.map(style=>section(slug(style)+' · size / color matrix',matrix(products.find(p=>p.style===style)))).join('')+noReal;
 };
@@ -326,8 +305,8 @@ function productForm() {
     '<div class="form-row">'+field('Sizes (comma separated)','p-sizes','text','S, M, L')+field('Colors (comma separated)','p-colors','text','Black, Navy')+'</div>'+
     '<div class="form-row">'+field('Buying cost (BDT)','p-cost','number',680)+field('Selling price (BDT)','p-price','number',1490)+
     '<div class="form-group"><label for="p-vat">VAT mode</label><select class="field" id="p-vat"><option value="included">Inclusive</option><option value="excluded">Exclusive</option><option value="exempt">Exempt</option></select></div></div>'+
-    '<div class="form-row"><div class="form-group"><label for="p-branch">Initial stock branch</label><select class="field" id="p-branch" '+(state.role==='manager'?'disabled':'')+'>'+
-    '<option value="">Choose a branch</option><option value="1">New Market</option><option value="2">Dakbangla</option></select></div>'+
+    '<div class="form-row"><div class="form-group"><label for="p-branch">Initial stock branch</label><select class="field" id="p-branch" '+(state.role==='manager'||curBranch()!=='all'?'disabled':'')+'>'+
+    '<option value="">Choose a branch</option>'+branchOptions(formBranch)+'</select></div>'+
     field('Initial units per variant','p-stock','number',0)+
     '<div class="form-group"><label for="p-sku-mode">SKU entry</label><select id="p-sku-mode" class="field"><option value="auto">Auto Generate</option><option value="manual">Manual SKU</option></select></div></div>'+
     '<div class="form-group"><label for="p-image">Product image (PNG, JPEG or WebP, up to 2 MB)</label><input id="p-image" type="file" accept="image/png,image/jpeg,image/webp"><img id="image-preview" class="variant-image" alt="Product image preview" hidden></div>'+
@@ -407,7 +386,7 @@ function productForm() {
     const name=value('p-name'),description=value('p-description');
     const category=categories.find(c=>c.id===Number(value('p-category'))&&!c.archived);
     const price=Number(value('p-price')),cost=Number(value('p-cost'));
-    const branch=state.role==='manager'?assignedBranch:value('p-branch');
+    const branch=curBranch()==='all'?value('p-branch'):curBranch();
     const file=$('#p-image').files[0],vat=value('p-vat');
     if (!name) return showError('Enter a product name.','p-name');
     if (!category) return showError('Choose an active category.','p-category');
@@ -484,11 +463,11 @@ function labels(id, ids = [id], labelBranch = curBranch()) {
   state.labelVariant=id;
   const variants=ids.map(variantId=>products.find(p=>p.id===variantId));
   const p=products.find(p=>p.id===id);
-  openModal('<h2>QAHAF · Print / reprint barcode</h2><p>'+slug(branchLabel(labelBranch))+' · Reprints preserve each variant’s original barcode.</p>'+
+  openModal('<h2>'+APP_CONFIG.brand+' · Print / reprint barcode</h2><p>'+slug(branchLabel(labelBranch))+' · Reprints preserve each variant’s original barcode.</p>'+
     '<div class="label-variant-list">'+variants.map(v=>'<label><input type="checkbox" data-print-variant="'+v.id+'" checked> '+slug(v.name+' · '+v.color+' / '+v.size+' · '+v.sku)+'</label>').join('')+'</div>'+
     '<div class="form-row">'+field('Labels per variant','label-count','number',1)+
     '<div class="form-group"><label for="label-width">Label width</label><select id="label-width" class="field"><option value="58">58 mm</option><option value="80">80 mm</option></select></div></div>'+
-    '<p>Use 100% scale in print settings. Check physical scanner readability on your printer.</p><div id="label-preview"><strong>QAHAF</strong><p>'+slug(p.sku)+'</p><svg id="barcode-preview"></svg></div>'+
+    '<p>Use 100% scale in print settings. Check physical scanner readability on your printer.</p><div id="label-preview"><strong>'+APP_CONFIG.brand+'</strong><p>'+slug(p.sku)+'</p><svg id="barcode-preview"></svg></div>'+
     '<div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" id="print-labels">Print labels</button></div>');
   JsBarcode('#barcode-preview',p.barcode,{format:'CODE128',width:2,height:45,margin:12});
   $('#print-labels').onclick=()=>{
@@ -499,7 +478,7 @@ function labels(id, ids = [id], labelBranch = curBranch()) {
     const root=document.createElement('div');root.id='print-root';
     for(const variant of selected) for(let i=0;i<count;i++){
       const label=document.createElement('div');label.className='barcode-label';label.style.width=width+'mm';
-      const brand=document.createElement('strong');brand.textContent='QAHAF · Men’s Fashion';
+      const brand=document.createElement('strong');brand.textContent=APP_CONFIG.brand+' · '+APP_CONFIG.businessType;
       const text=document.createElement('div');text.textContent=variant.name+' · '+variant.color+' / '+variant.size+' · '+money(variant.price);
       const sku=document.createElement('div');sku.textContent=variant.sku+' · '+branchLabel(labelBranch);
       const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -539,18 +518,38 @@ handleAction = function(action) {
   if(action==='scan')$('#scan-input').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const value=e.target.value;closeModal();scanBarcode(value);}};
 };
 function exportReport() {
+  if(state.role!=='owner'){notify('Report exports are available in the Owner preview.');return;}
   const period=state.page==='overview'?state.date:state.month;
   const rows=rowsFor(period),f=figures(rows),e=expenseAmount(period);
-  const csvRows=[['Brand','Period','Branch','Metric','Value'],
-    ...Object.entries({...f,expenses:e,operatingProfit:round(f.profit-e),currentInventoryValue:inventoryValue()}).map(([k,v])=>['QAHAF',period,branchLabel(curBranch()),k,v]),
+  let csvRows=[['Brand','Period','Branch','Metric','Value'],
+    ...Object.entries({...f,expenses:e,operatingProfit:round(f.profit-e),currentInventoryValue:inventoryValue()}).map(([k,v])=>[APP_CONFIG.brand,period,branchLabel(curBranch()),k,v]),
     [],['Invoice','Date','Hour','Branch','Method','Barcode','SKU','Category','Product','Size','Color','Net units','Net revenue','Gross profit','Discount'],
     ...rows.flatMap(s=>s.lines.map(l=>{
       const p=products.find(p=>p.id===l.productId);
       return [s.id,s.date,s.hour,branchLabel(s.branch),s.method,l.barcode||p.barcode,l.sku||p.sku,categoryName(p.categoryId),p.name,p.size,p.color,l.qty*(l.refund?-1:1),l.revenue,l.profit,l.discount];
     }))];
+  if(state.page==='expenses'){
+    const expenses=state.expenses.filter(item=>item.date.startsWith(period)&&scoped(item.branch));
+    csvRows=[
+      ['Brand','Period','Branch','Metric','Value'],
+      [APP_CONFIG.brand,period,branchLabel(curBranch()),'expenses',expenseAmount(period)],
+      [],['Date','Description','Category','Branch','Amount'],
+      ...expenses.map(item=>[item.date,item.title,item.cat,branchLabel(item.branch),item.amount])
+    ];
+  }
+  if(state.page==='customers'){
+    csvRows=[
+      ['Brand','Period','Branch'],[APP_CONFIG.brand,period,branchLabel(curBranch())],
+      [],['Customer','Mobile','Branch','Invoices','Net spending','Consent'],
+      ...customersData.filter(customer=>scoped(customer.branch)).map(customer=>{
+        const totals=figures(rows.filter(sale=>sale.customerId===customer.id));
+        return [customer.name,customer.phone,branchLabel(customer.branch),totals.invoices,totals.revenue,customer.consent?'Yes':'No'];
+      })
+    ];
+  }
   const csv=csvRows.map(row=>row.map(value=>'"'+(typeof value === 'string' ? value.replace(/^[=+@-]/,"'"+value[0]) : String(value)).replaceAll('"','""')+'"').join(',')).join('\r\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  const link=document.createElement('a');link.href=url;link.download='qahaf-v1.2-'+period+'-'+branchLabel(curBranch()).toLowerCase().replaceAll(' ','-')+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const link=document.createElement('a');link.href=url;link.download=APP_CONFIG.brand.toLowerCase()+'-v1.2-'+period+'-'+branchLabel(curBranch()).toLowerCase().replaceAll(' ','-')+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function bindV11() {
   document.querySelectorAll('[data-v11]').forEach(b=>b.onclick=()=>{
@@ -627,7 +626,7 @@ $('#modal-root').addEventListener('click',e=>{
   if(!state.cart.length)return;
   if(state.cart.some(l=>l.qty>stock(products.find(p=>p.id===l.id))))return notify('Cart exceeds available branch stock');
   const t=totals(),discountRate=t.sub?t.discount/t.sub:0;
-  const sale={id:'DEMO-'+(ledger.length+1),date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dhaka',hour:'2-digit',hour12:false}).format(new Date())),branch:Number(curBranch()),method:$('#pay-method').value,customerId:null,
+  const sale={id:'DEMO-'+(ledger.length+1),date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{timeZone:APP_CONFIG.timezone,hour:'2-digit',hour12:false}).format(new Date())),branch:Number(curBranch()),method:$('#pay-method').value,customerId:null,
     lines:state.cart.map(l=>saleLine(products.find(p=>p.id===l.id),l.qty,discountRate))};
   // Assign rounding remainder to the final line so invoice and report totals agree.
   const remainder=round(t.total-sale.lines.reduce((n,l)=>n+l.revenue,0));
@@ -635,7 +634,7 @@ $('#modal-root').addEventListener('click',e=>{
   state.cart.forEach(l=>products.find(p=>p.id===l.id)['b'+curBranch()]-=l.qty);
   ledger.push(sale);state.demoTransactions.push(sale);state.cart=[];state.discount=0;state.customer='';
   closeModal();render();
-  openModal('<h2>Sample receipt generated</h2><div id="demo-receipt" class="receipt"><h3>QAHAF</h3><p>'+sale.id+' · '+branchLabel(sale.branch)+' · '+today+'</p>'+
+  openModal('<h2>Sample receipt generated</h2><div id="demo-receipt" class="receipt"><h3>'+APP_CONFIG.brand+'</h3><p>'+sale.id+' · '+branchLabel(sale.branch)+' · '+today+'</p>'+
     table(['Item / SKU','Units','Net amount'],sale.lines.map(l=>[slug(products.find(p=>p.id===l.productId).name+' / '+l.sku),l.qty,money(l.revenue)]))+
     '<p>Discount '+money(t.discount)+' · Total '+money(t.total)+' · '+slug(sale.method)+'</p><p>DEMONSTRATION — NOT A TAX INVOICE</p></div><div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" onclick="window.print()">Print demo receipt</button></div>');
   notify('Demo sale added to reports and sample stock');
@@ -645,7 +644,7 @@ $('#modal-root').addEventListener('click',e=>{
 let scannerBuffer = '';
 let scannerLastKey = 0;
 document.addEventListener('keydown', event => {
-  if (!['pos','inventory'].includes(state.page) || $('#overlay')) return;
+  if (!['pos','inventory'].includes(state.page) || $('#overlay') || document.body.classList.contains('navigation-open')) return;
   if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
   if (event.ctrlKey || event.altKey || event.metaKey) return;
   const now = performance.now();
@@ -673,12 +672,6 @@ purchases = function() {
     .replace(metric('ACTIVE SUPPLIERS','4','Illustrative vendors','♧'),
     metric('ACTIVE SUPPLIERS',new Set(state.purchases.filter(p=>scoped(p.branch)).map(p=>p.supplier)).size,'Listed sample vendors','♧'));
 };
-const originalSettings = settings;
-settings = function() {
-  return originalSettings().replace('one selected branch at a time','one assigned branch')
-    .replace('Manager operates one branch.', 'Manager is assigned to New Market for this demo.')
-    .replace('Cannot see consolidated company reports or manage account assignments.', 'Reports and operational actions use the assigned branch. Category management belongs to the Owner.');
-};
 const originalTransfers=transfers;
 transfers=function(){
   return originalTransfers()+section('Receive inbound transfers',table(['Transfer','Variant','Units','Action'],state.transfers.filter(t=>t.productId&&t.status==='In transit'&&Number(curBranch())===t.to).map(t=>[
@@ -695,5 +688,3 @@ bind=function(){
     stockMovements.push({productId:t.productId,branch:t.to,qty:t.qty,type:'Transfer receipt'});render();
   });
 };
-$('.support').innerHTML='Designed for modern retail.<br>v1.2 · Sample data resets on refresh';
-render();

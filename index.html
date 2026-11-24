@@ -1,2 +1,49 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#1F1F1C"><title>QAHAF — Men’s Fashion POS Demo V1.2</title><link rel="stylesheet" href="style.css"></head><body>
-<div id="app"><aside class="sidebar"><div class="brand"><div class="brandmark">Q<span>.</span></div><div><strong>QAHAF</strong><small>MEN’S FASHION</small></div></div><div class="workspace"><span class="ws-icon">Q</span><div><b>QAHAF</b><small>Men’s Fashion · Client demo</small></div><span class="chev">⌄</span></div><div class="nav-label">WORKSPACE</div><nav id="nav"></nav><div class="sidebar-bottom"><div class="demo-chip"><span class="demo-dot"></span> SANDBOX / SAMPLE DATA</div><div class="support">Designed for modern retail.<br>v1.2 · Interactive preview</div></div></aside><div class="main-wrap"><header class="topbar"><div class="mobilebrand">QAHAF <span>POS DEMO</span></div><div class="breadcrumb"><span id="crumb">Overview</span><span class="sep">/</span><b id="crumb2">Dashboard</b></div><div class="top-actions"><select aria-label="Demo role" id="role"><option value="owner">Owner account</option><option value="manager">Branch manager</option></select><select aria-label="Branch" id="branch"><option value="all">All branches</option><option value="1">New Market</option><option value="2">Dakbangla</option></select><div class="avatar" title="Demo profile">Q</div></div></header><main id="content"></main></div></div><div id="toast" class="toast" role="status"></div><div id="modal-root"></div><script src="app.js"></script><script src="vendor/JsBarcode.all.min.js"></script><script src="v11.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1F1F1C">
+  <title>Fashion POS · Client demo</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to workspace</a>
+<div id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+    <div class="sidebar-heading">
+      <div class="brand">
+        <div class="brandmark"><span data-brand-initial></span></div>
+        <div><strong data-brand></strong><small data-business></small></div>
+      </div>
+      <button id="nav-close" class="nav-close" aria-label="Close navigation">×</button>
+    </div>
+    <div class="workspace"><span class="ws-icon" data-brand-initial></span><div><b data-brand></b><small>Sample-data workspace</small></div></div>
+    <nav id="nav" aria-label="Main navigation"></nav>
+    <div class="sidebar-bottom"><div class="demo-chip"><span class="demo-dot"></span> SAMPLE DATA</div><p class="support">Browser-only role simulation.<br>Changes reset on refresh.</p></div>
+  </aside>
+  <div id="nav-backdrop" hidden></div>
+  <div class="main-wrap">
+    <header class="topbar">
+      <div class="header-location">
+        <button class="nav-toggle" id="nav-toggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <div class="mobilebrand"><span data-brand></span></div>
+        <div class="breadcrumb"><span id="crumb">Workspace</span><span class="sep">/</span><b id="crumb2">Dashboard</b></div>
+      </div>
+      <div class="top-actions">
+        <div class="header-field"><label for="role">Browser role simulation</label><select id="role"><option value="owner">Owner</option><option value="manager">Manager</option></select></div>
+        <div class="header-field"><label for="branch">Branch scope</label><select id="branch" aria-label="Branch"></select></div>
+      </div>
+    </header>
+    <main id="content" tabindex="-1"></main>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="modal-root"></div>
+<script src="app.js"></script>
+<script src="vendor/JsBarcode.all.min.js"></script>
+<script src="v11.js"></script>
+<script src="shell.js"></script>
+</body>
+</html>
