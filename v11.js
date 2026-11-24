@@ -69,7 +69,7 @@ function saleLine(product, qty, discountRate = 0, refund = false) {
   const gross = round(product.price * qty);
   const discount = round(gross * discountRate);
   const revenue = round(gross - discount);
-  return { productId:product.id, sku:product.sku, barcode:product.barcode, qty, unitPrice:product.price, unitCost:product.cost,
+  return { productId:product.id, productName:product.name, categoryId:product.categoryId, categoryLabel:categoryName(product.categoryId), color:product.color, size:product.size, groupId:product.groupId, vat:product.vat, sku:product.sku, barcode:product.barcode, qty, unitPrice:product.price, unitCost:product.cost,
     discount:refund ? 0 : discount, revenue:refund ? -revenue : revenue,
     profit:round((revenue - product.cost * qty) * (refund ? -1 : 1)), refund };
 }
@@ -144,27 +144,34 @@ function periodControls(monthly) {
   return '<div class="toolbar"><label for="report-period">'+(monthly?'Month / year':'Date')+'</label><input class="input" id="report-period" type="'+(monthly?'month':'date')+'" value="'+(monthly?state.month:state.date)+'">'+exportButton()+'</div>';
 }
 function groupedLines(rows) {
-  const grouped = new Map();
-  rows.flatMap(s=>s.lines).forEach(l => {
-    const item = grouped.get(l.productId)||{productId:l.productId,qty:0,revenue:0,profit:0};
-    item.qty += l.qty*(l.refund?-1:1); item.revenue=round(item.revenue+l.revenue); item.profit=round(item.profit+l.profit);
-    grouped.set(l.productId,item);
+  const grouped=new Map();
+  rows.flatMap(sale=>sale.lines).forEach(line=>{
+    const key=JSON.stringify([line.productId,line.categoryId,line.categoryLabel,line.productName,line.color,line.size]);
+    const item=grouped.get(key)||{...line,qty:0,revenue:0,profit:0};
+    item.qty+=line.qty*(line.refund?-1:1);
+    item.revenue=round(item.revenue+line.revenue);
+    item.profit=round(item.profit+line.profit);
+    grouped.set(key,item);
   });
   return [...grouped.values()].sort((a,b)=>b.qty-a.qty);
 }
 function itemTable(rows) {
-  return table(['Category','Product','Variant','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],groupedLines(rows).map(l=>{
-    const p=products.find(p=>p.id===l.productId);
-    return [slug(categoryName(p.categoryId)),slug(p.name),slug(p.color+' / '+p.size),l.qty,money(l.revenue),...(state.role==='owner'?[money(l.profit)]:[])];
-  }));
+  return table(['Category','Product','Variant','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],
+    groupedLines(rows).map(line=>[
+      slug(line.categoryLabel),slug(line.productName),slug(line.color+' / '+line.size),
+      line.qty,money(line.revenue),...(state.role==='owner'?[money(line.profit)]:[])
+    ]));
 }
 function categoryTable(rows) {
-  return table(['Category','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],categories.map(c=>{
-    const lines=rows.map(s=>({...s,lines:s.lines.filter(l=>products.find(p=>p.id===l.productId).categoryId===c.id)}));
-    const f=figures(lines);
-    const qty=lines.flatMap(s=>s.lines).reduce((n,l)=>n+l.qty*(l.refund?-1:1),0);
-    return [slug(c.name),qty,money(f.revenue),...(state.role==='owner'?[money(f.profit)]:[])];
-  }));
+  const groups=new Map(categories.map(category=>[category.id+'|'+category.name,{name:category.name,qty:0,revenue:0,profit:0}]));
+  rows.flatMap(sale=>sale.lines).forEach(line=>{
+    const key=line.categoryId+'|'+line.categoryLabel;
+    const item=groups.get(key)||{name:line.categoryLabel,qty:0,revenue:0,profit:0};
+    item.qty+=line.qty*(line.refund?-1:1);item.revenue=round(item.revenue+line.revenue);item.profit=round(item.profit+line.profit);
+    groups.set(key,item);
+  });
+  return table(['Category','Net units','Net revenue',...(state.role==='owner'?['Gross profit']:[])],
+    [...groups.values()].map(item=>[slug(item.name),item.qty,money(item.revenue),...(state.role==='owner'?[money(item.profit)]:[])]));
 }
 overview = function() {
   const rows=rowsFor(state.date), f=figures(rows);
@@ -181,12 +188,12 @@ overview = function() {
 function bestSellingTable(rows) {
   const groups = new Map();
   groupedLines(rows).forEach(line => {
-    const product = products.find(p => p.id === line.productId);
-    const item = groups.get(product.groupId) || { name: product.name, qty: 0, revenue: 0, profit: 0 };
+    const key=line.groupId+'|'+line.productName;
+    const item = groups.get(key) || { name: line.productName, qty: 0, revenue: 0, profit: 0 };
     item.qty += line.qty;
     item.revenue = round(item.revenue + line.revenue);
     item.profit = round(item.profit + line.profit);
-    groups.set(product.groupId, item);
+    groups.set(key, item);
   });
   return table(['Product','Net units','Revenue','Gross profit'], [...groups.values()]
     .sort((a,b) => b.qty-a.qty).map(p => [slug(p.name),p.qty,money(p.revenue),money(p.profit)]));
@@ -231,6 +238,7 @@ const originalAddCart=addCart;
 addCart = function(id) {
   if(!requireBranch())return;
   const p=products.find(p=>p.id===id);
+  if(p&&!sellableVariant(p)){notify('This variant is inactive or unavailable in the selected branch.');return;}
   if(!p){notify('Unknown barcode');return;}
   if(!stock(p)){notify('Out of stock in this branch');return;}
   originalAddCart(id);
@@ -246,263 +254,11 @@ function scanBarcode(value) {
   state.search='';addCart(p.id);
   $('#pos-search')?.focus();
 }
-function categoryPage() {
-  const owner=state.role==='owner';
-  return title('Categories','One shared category catalog for both branches.',owner?'<button class="btn primary" data-v11="category-new">＋ Create category</button>':'')+
-    section('Category order',table(['Category','Status','Actions'],categories.map((c,i)=>[
-      slug(c.name),c.archived?'Archived':'Active',owner?
-      '<div class="actions"><button class="btn small" data-category-edit="'+c.id+'">Rename</button><button class="btn small" data-category-archive="'+c.id+'">'+(c.archived?'Restore':'Archive')+'</button><button aria-label="Move '+slug(c.name)+' up" class="btn small" data-category-move="'+c.id+':-1" '+(i===0?'disabled':'')+'>↑</button><button aria-label="Move '+slug(c.name)+' down" class="btn small" data-category-move="'+c.id+':1" '+(i===categories.length-1?'disabled':'')+'>↓</button></div>':'Owner manages categories'
-    ])))+'<p class="note">Archiving hides a category from new product forms. Existing variants and historical reports retain it.</p>'+noReal;
-}
 function field(label,id,type='text',value='') {
   return '<div class="form-group"><label for="'+id+'">'+label+'</label><input class="input" id="'+id+'" type="'+type+'" value="'+slug(value)+'"></div>';
 }
-function variantButtons(p) {
-  return '<div class="actions"><button class="btn small" data-detail="'+p.id+'">Details</button><button class="btn small" data-label="'+p.id+'">Print Barcode</button><button class="btn small" data-label="'+p.id+'">Reprint Barcode</button></div>';
-}
-productsPage = function() {
-  const list=products.filter(p=>[p.name,p.sku,p.style,...(p.skuAliases||[]),p.barcode,categoryName(p.categoryId),p.color,p.size].join(' ').toLowerCase().includes(state.search.toLowerCase()));
-  return title('Products & barcodes','Shared styles and variants with immutable demo barcodes.','<button class="btn primary" data-action="product-form">＋ Add New Product</button>')+
-    '<div class="toolbar"><input aria-label="Search products" class="search" id="table-search" placeholder="Search product / SKU / barcode" value="'+slug(state.search)+'"></div>'+
-    section('Variant catalog',table(['Product','Category','SKU / Style','Size / Color','Price','Cost','VAT mode','Barcode','Actions'],list.map(p=>[
-      (p.image?'<img class="variant-image" src="'+slug(p.image)+'" alt="">':'')+slug(p.name),slug(categoryName(p.categoryId)),slug(p.sku),slug(p.size+' / '+p.color),money(p.price),money(p.cost),slug(p.vat),p.barcode,variantButtons(p)
-    ])))+noReal;
-};
-function matrix(p) {
-  const variants=products.filter(x=>x.groupId===p.groupId);
-  const sizes=[...new Set(variants.map(x=>x.size))], colors=[...new Set(variants.map(x=>x.color))];
-  return table(['Color / size',...sizes],colors.map(color=>[slug(color),...sizes.map(size=>{
-    const v=variants.find(x=>x.color===color&&x.size===size);return v?stock(v):'—';
-  })]));
-}
-inventory = function() {
-  const term=state.search.trim().toLowerCase();
-  const list=products.filter(p=>[p.name,p.sku,p.style,...(p.skuAliases||[]),p.barcode,p.color,p.size].join(' ').toLowerCase().includes(term));
-  const exact=products.find(p=>matchesVariant(p,state.search.trim()))||products.find(p=>p.style.toLowerCase()===term);
-  const styles=[...new Set(list.map(p=>p.style))];
-  return title('Inventory control','Scan or search to locate an exact variant and all size / color availability.','<div class="actions"><button class="btn primary" data-action="product-form">＋ Add New Product</button><button class="btn" data-v11="receive">＋ Receive sample stock</button></div>')+
-    '<div class="grid metrics">'+metric('ON-HAND UNITS',products.reduce((n,p)=>n+stock(p),0),'Selected branch scope')+(state.role==='owner'?metric('INVENTORY VALUE',money(inventoryValue()),'Current cost'):'')+'</div>'+
-    '<div class="toolbar"><input id="table-search" class="search" aria-label="Inventory barcode or SKU" placeholder="Scan barcode + Enter or search SKU" value="'+slug(state.search)+'"></div>'+
-    (exact?section(matchesVariant(exact,state.search.trim())?'Exact match':'Style availability', '<b>'+slug(exact.name+' · '+exact.color+' / '+exact.size)+'</b><p>'+slug(exact.sku)+' · '+stock(exact)+' units in selected scope · '+exact.barcode+'</p>'+variantButtons(exact)+matrix(exact)):'')+
-    section('Stock by variant',table(['Product','SKU','Color / Size','Barcode',...(curBranch()==='all'?APP_CONFIG.branches.map(branch=>branch.name):[]),'Available','Actions'],list.map(p=>[
-      slug(p.name),slug(p.sku),slug(p.color+' / '+p.size),p.barcode,...(curBranch()==='all'?[p.b1,p.b2]:[]),stock(p),variantButtons(p)
-    ])))+styles.map(style=>section(slug(style)+' · size / color matrix',matrix(products.find(p=>p.style===style)))).join('')+noReal;
-};
-function productForm() {
-  const formBranch = state.role === 'manager' ? assignedBranch : (curBranch() === 'all' ? '' : curBranch());
-  const productNumber = Math.max(...products.map(p => p.groupId)) + 1;
-  const manualSkus = new Map();
-  const quantities = new Map();
-  let draft = [];
-
-  openModal('<h2>Add New Product</h2><p>Create shared variants and receive initial stock into one branch. Sample changes reset on refresh.</p>'+
-    '<form id="product-form" novalidate>'+
-    '<div class="form-row">'+field('Product name','p-name')+
-    '<div class="form-group"><label for="p-category">Category</label><div class="category-picker"><select id="p-category" class="field"></select><button type="button" class="btn small" id="add-category-inline">＋ New category</button></div></div></div>'+
-    '<div id="inline-category" hidden><div class="form-row">'+field('New category name','new-category-name')+field('Category code','new-category-code')+
-    '</div><button type="button" class="btn small" id="save-inline-category">Add category</button><p id="category-error" role="alert"></p></div>'+
-    '<div class="form-group"><label for="p-description">Description (optional)</label><textarea id="p-description" class="input" rows="2"></textarea></div>'+
-    '<div class="form-row">'+field('Sizes (comma separated)','p-sizes','text','S, M, L')+field('Colors (comma separated)','p-colors','text','Black, Navy')+'</div>'+
-    '<div class="form-row">'+field('Buying cost (BDT)','p-cost','number',680)+field('Selling price (BDT)','p-price','number',1490)+
-    '<div class="form-group"><label for="p-vat">VAT mode</label><select class="field" id="p-vat"><option value="included">Inclusive</option><option value="excluded">Exclusive</option><option value="exempt">Exempt</option></select></div></div>'+
-    '<div class="form-row"><div class="form-group"><label for="p-branch">Initial stock branch</label><select class="field" id="p-branch" '+(state.role==='manager'||curBranch()!=='all'?'disabled':'')+'>'+
-    '<option value="">Choose a branch</option>'+branchOptions(formBranch)+'</select></div>'+
-    field('Initial units per variant','p-stock','number',0)+
-    '<div class="form-group"><label for="p-sku-mode">SKU entry</label><select id="p-sku-mode" class="field"><option value="auto">Auto Generate</option><option value="manual">Manual SKU</option></select></div></div>'+
-    '<div class="form-group"><label for="p-image">Product image (PNG, JPEG or WebP, up to 2 MB)</label><input id="p-image" type="file" accept="image/png,image/jpeg,image/webp"><img id="image-preview" class="variant-image" alt="Product image preview" hidden></div>'+
-    '<h3>Variant SKUs and initial stock</h3><p class="form-help">A separate barcode is generated for every color and size. Edit stock per variant below.</p><div id="variant-draft"></div>'+
-    '<p id="form-error" role="alert" aria-live="polite"></p>'+
-    '<div class="modal-foot product-save-actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn" type="submit" value="another">Save &amp; Add Another</button><button class="btn" type="submit" value="print">Save &amp; Print Barcode</button><button class="btn primary" type="submit" value="save">Save</button></div></form>');
-  const form = $('#product-form');
-  form.closest('.modal').classList.add('product-entry-modal');
-  const value = id => form.querySelector('#'+id).value.trim();
-  const splitValues = id => [...new Set(value(id).split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toUpperCase()))];
-  const showError = (message, id) => {
-    $('#form-error').textContent = message;
-    form.querySelectorAll('[aria-invalid]').forEach(input=>input.removeAttribute('aria-invalid'));
-    if (id) { const input=form.querySelector('#'+id);input?.setAttribute('aria-invalid','true');input?.focus(); }
-    return false;
-  };
-  const fillCategories = selected => {
-    $('#p-category').innerHTML = categories.filter(c=>!c.archived).map(c=>'<option value="'+c.id+'">'+slug(c.name)+'</option>').join('');
-    if (selected) $('#p-category').value=String(selected);
-  };
-  const updateDraft = () => {
-    form.querySelectorAll('[data-draft-sku]').forEach(input=>manualSkus.set(input.dataset.draftSku,input.value));
-    form.querySelectorAll('[data-draft-stock]').forEach(input=>quantities.set(input.dataset.draftStock,input.value));
-    const sizes=splitValues('p-sizes'),colors=splitValues('p-colors');
-    const category=categories.find(c=>c.id===Number(value('p-category')));
-    draft=[];
-    if (sizes.length*colors.length>50) {
-      $('#variant-draft').innerHTML='<p role="alert">Use up to 50 size/color combinations per product.</p>';
-      return;
-    }
-    for (const color of colors) for (const size of sizes) {
-      const key=color+'|'+size;
-      const suggested=variantSku(category?.code||'NEW',productNumber,color,size);
-      draft.push({key,color,size,sku:value('p-sku-mode')==='manual'?(manualSkus.get(key)||suggested):suggested});
-    }
-    const manual=value('p-sku-mode')==='manual';
-    $('#variant-draft').innerHTML=table(['Color','Size','SKU','Initial units'],draft.map((v,i)=>[
-      slug(v.color),slug(v.size),
-      '<input id="draft-sku-'+i+'" class="input sku-input" aria-label="SKU '+slug(v.color+' '+v.size)+'" '+(manual?'':'readonly')+' data-draft-sku="'+slug(v.key)+'" value="'+slug(v.sku)+'">',
-      '<input id="draft-stock-'+i+'" class="input stock-input" aria-label="Stock '+slug(v.color+' '+v.size)+'" type="number" min="0" step="1" data-draft-stock="'+slug(v.key)+'" value="'+slug(quantities.get(v.key)??value('p-stock'))+'">'
-    ]));
-  };
-  fillCategories();
-  $('#p-branch').value=formBranch;
-  ['p-category','p-sizes','p-colors','p-sku-mode'].forEach(id=>$('#'+id).addEventListener('change',updateDraft));
-  $('#p-stock').oninput=()=>{
-    quantities.clear();
-    form.querySelectorAll('[data-draft-stock]').forEach(input=>input.value=value('p-stock'));
-    updateDraft();
-  };
-  $('#add-category-inline').onclick=()=>{ $('#inline-category').hidden=!$('#inline-category').hidden;$('#new-category-name').focus(); };
-  $('#new-category-name').oninput=()=>{ $('#new-category-code').value=skuPart(value('new-category-name')).slice(0,3); };
-  $('#save-inline-category').onclick=()=>{
-    const name=value('new-category-name'),code=skuPart(value('new-category-code'));
-    if (!name||!code||code.length>6||categories.some(c=>c.name.toLowerCase()===name.toLowerCase()||c.code===code)) {
-      $('#category-error').textContent='Enter a unique category name and a unique code of 1–6 letters or digits.';
-      return;
-    }
-    const category={id:Math.max(...categories.map(c=>c.id))+1,name,code,archived:false};
-    categories.push(category);
-    fillCategories(category.id);$('#inline-category').hidden=true;$('#category-error').textContent='';updateDraft();
-  };
-  $('#p-image').onchange=()=>{
-    const file=$('#p-image').files[0];
-    $('#image-preview').hidden=true;
-    if (file&&['image/png','image/jpeg','image/webp'].includes(file.type)&&file.size<=2*1024*1024) {
-      const reader=new FileReader();
-      reader.onload=()=>{if(form.isConnected&&$('#p-image').files[0]===file){$('#image-preview').src=reader.result;$('#image-preview').hidden=false;}};
-      reader.readAsDataURL(file);
-    }
-  };
-  updateDraft();
-  form.onsubmit=async event=>{
-    event.preventDefault();
-    // Synchronize suggestions after keyboard submission without a preceding blur.
-    updateDraft();
-    const name=value('p-name'),description=value('p-description');
-    const category=categories.find(c=>c.id===Number(value('p-category'))&&!c.archived);
-    const price=Number(value('p-price')),cost=Number(value('p-cost'));
-    const branch=curBranch()==='all'?value('p-branch'):curBranch();
-    const file=$('#p-image').files[0],vat=value('p-vat');
-    if (!name) return showError('Enter a product name.','p-name');
-    if (!category) return showError('Choose an active category.','p-category');
-    if (!value('p-price')||!Number.isFinite(price)||round(price)<=0) return showError('Enter a selling price of at least 0.01.','p-price');
-    if (!value('p-cost')||!Number.isFinite(cost)||cost<0) return showError('Enter a nonnegative buying cost.','p-cost');
-    if (!['1','2'].includes(branch)) return showError('Choose a branch for the initial stock.','p-branch');
-    if (!draft.length) return showError('Enter sizes and colors, up to 50 combinations.','p-sizes');
-    if (file&&(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2*1024*1024)) return showError('Choose a PNG, JPEG or WebP up to 2 MB.','p-image');
-    const skus=new Set();
-    for (const [i,variant] of draft.entries()) {
-      variant.sku=form.querySelector('#draft-sku-'+i).value.trim().toUpperCase();
-      variant.qty=Number(form.querySelector('#draft-stock-'+i).value);
-      if (!/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(variant.sku)) return showError('Use a SKU of 1–64 letters, numbers, dots, hyphens or underscores.','draft-sku-'+i);
-      if (skus.has(variant.sku)||skuInUse(variant.sku)) return showError('SKU '+variant.sku+' is already assigned. Choose a unique company-wide SKU.','draft-sku-'+i);
-      if (!form.querySelector('#draft-stock-'+i).value||!Number.isInteger(variant.qty)||variant.qty<0||variant.qty>10000) return showError('Enter 0–10000 whole units for every variant.','draft-stock-'+i);
-      skus.add(variant.sku);
-    }
-    const savedVariants=draft.map(variant=>({...variant}));
-    const buttons=[...form.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);
-    const action=event.submitter?.value||'save';
-    try {
-      const image=file?await new Promise((resolve,reject)=>{
-        const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);
-      }):'';
-      if (!form.isConnected) return;
-      // Recheck after image loading before publishing the complete product in memory.
-      if (savedVariants.some(v=>skuInUse(v.sku))) { buttons.forEach(button=>button.disabled=false);return showError('A SKU was assigned while loading the image. Update the SKU and save again.'); }
-      let id=Math.max(...products.map(p=>p.id));
-      let barcode=Math.max(...products.map(p=>Number(p.barcode)));
-      const created=savedVariants.map(v=>({
-        id:++id,groupId:productNumber,name,description,style:category.code+'-'+String(productNumber).padStart(4,'0'),
-        categoryId:category.id,cat:category.name,color:v.color,size:v.size,price:round(price),cost:round(cost),vat,image,
-        sku:v.sku,skuAliases:[],barcode:String(++barcode),b1:branch==='1'?v.qty:0,b2:branch==='2'?v.qty:0,art:'◇'
-      }));
-      if (created.some(p=>products.some(existing=>existing.barcode===p.barcode))) throw Error('Barcode collision');
-      products.push(...created);
-      created.forEach(p=>stockMovements.push({productId:p.id,branch:Number(branch),qty:p['b'+branch],type:'Initial stock'}));
-      state.search='';
-      closeModal();render();notify('Product saved · '+created.length+' variants · '+branchLabel(branch));
-      if (action==='another') productForm();
-      if (action==='print') labels(created[0].id,created.map(p=>p.id),branch);
-    } catch {
-      buttons.forEach(button=>button.disabled=false);
-      showError('The product could not be saved. Check the image and try again.');
-    }
-  };
-}
-
-function showDetail(id) {
-  const p=products.find(p=>p.id===id);
-  openModal('<h2>'+slug(p.name)+'</h2><p>'+slug(p.sku+' · '+p.color+' / '+p.size)+'</p>'+
-    (p.image?'<img class="detail-image" src="'+slug(p.image)+'" alt="'+slug(p.name)+'">':'')+
-    '<p>'+slug(p.description||'')+'</p><p>'+slug(categoryName(p.categoryId))+' · '+money(p.price)+' · Buying cost '+money(p.cost)+' · VAT '+slug(p.vat)+'</p>'+
-    '<p>Barcode '+p.barcode+' · '+slug(branchLabel(curBranch()))+' · Available '+stock(p)+'</p>'+matrix(p)+variantButtons(p)+
-    '<details><summary>Edit SKU</summary><form id="sku-edit-form">'+field('Variant SKU','edit-sku','text',p.sku)+
-    '<p id="sku-error" role="alert"></p><button class="btn" type="submit">Save SKU</button></form></details>'+
-    '<div class="modal-foot"><button class="btn" data-close>Close</button></div>');
-  bindV11();
-  $('#sku-edit-form').onsubmit=e=>{
-    e.preventDefault();
-    const sku=$('#edit-sku').value.trim().toUpperCase();
-    if (!/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(sku)||skuInUse(sku,p.id)) {
-      $('#sku-error').textContent='Enter a valid, unique company-wide SKU.';return;
-    }
-    if (sku!==p.sku) {
-      p.skuAliases.push(p.sku);
-      p.sku=sku;
-    }
-    closeModal();render();notify('SKU updated. Barcode and history preserved.');
-  };
-}
-
-function labels(id, ids = [id], labelBranch = curBranch()) {
-  state.labelVariant=id;
-  const variants=ids.map(variantId=>products.find(p=>p.id===variantId));
-  const p=products.find(p=>p.id===id);
-  openModal('<h2>'+APP_CONFIG.brand+' · Print / reprint barcode</h2><p>'+slug(branchLabel(labelBranch))+' · Reprints preserve each variant’s original barcode.</p>'+
-    '<div class="label-variant-list">'+variants.map(v=>'<label><input type="checkbox" data-print-variant="'+v.id+'" checked> '+slug(v.name+' · '+v.color+' / '+v.size+' · '+v.sku)+'</label>').join('')+'</div>'+
-    '<div class="form-row">'+field('Labels per variant','label-count','number',1)+
-    '<div class="form-group"><label for="label-width">Label width</label><select id="label-width" class="field"><option value="58">58 mm</option><option value="80">80 mm</option></select></div></div>'+
-    '<p>Use 100% scale in print settings. Check physical scanner readability on your printer.</p><div id="label-preview"><strong>'+APP_CONFIG.brand+'</strong><p>'+slug(p.sku)+'</p><svg id="barcode-preview"></svg></div>'+
-    '<div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" id="print-labels">Print labels</button></div>');
-  JsBarcode('#barcode-preview',p.barcode,{format:'CODE128',width:2,height:45,margin:12});
-  $('#print-labels').onclick=()=>{
-    const count=Number($('#label-count').value),width=Number($('#label-width').value);
-    const selected=[...document.querySelectorAll('[data-print-variant]:checked')].map(input=>products.find(p=>p.id===Number(input.dataset.printVariant)));
-    if(!selected.length||!Number.isInteger(count)||count<1||count*selected.length>100)return notify('Choose variants and 1–100 total labels');
-    $('#print-root')?.remove();
-    const root=document.createElement('div');root.id='print-root';
-    for(const variant of selected) for(let i=0;i<count;i++){
-      const label=document.createElement('div');label.className='barcode-label';label.style.width=width+'mm';
-      const brand=document.createElement('strong');brand.textContent=APP_CONFIG.brand+' · '+APP_CONFIG.businessType;
-      const text=document.createElement('div');text.textContent=variant.name+' · '+variant.color+' / '+variant.size+' · '+money(variant.price);
-      const sku=document.createElement('div');sku.textContent=variant.sku+' · '+branchLabel(labelBranch);
-      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-      label.append(brand,text,sku,svg);root.append(label);
-      JsBarcode(svg,variant.barcode,{format:'CODE128',width:2,height:45,margin:12,fontSize:16});
-    }
-    document.body.append(root);document.body.classList.add('printing-labels');window.print();
-  };
-}
-
+// Product, taxonomy, receiving preparation and label views live in catalog.js.
 window.addEventListener('afterprint',()=>{document.body.classList.remove('printing-labels');$('#print-root')?.remove();});
-function receiveForm() {
-  if(!requireBranch())return;
-  openModal('<h2>Receive sample stock</h2><p>'+branchLabel(curBranch())+' · temporary browser state</p><form id="receive-form"><div class="form-group"><label for="receive-variant">Variant</label><select class="field" id="receive-variant">'+products.map(p=>'<option value="'+p.id+'">'+slug(p.name+' · '+p.sku+' · '+p.color+'/'+p.size)+'</option>').join('')+'</select></div>'+field('Units received','receive-qty','number',5)+field('Supplier','receive-supplier','text','Riverside Textiles')+
-    '<div class="modal-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Receive units</button></div></form>');
-  $('#receive-form').onsubmit=e=>{
-    e.preventDefault();const qty=Number($('#receive-qty').value),p=products.find(p=>p.id===Number($('#receive-variant').value));
-    if(!Number.isInteger(qty)||qty<1||qty>10000)return notify('Enter 1–10000 whole units');
-    if(!requireBranch())return;
-    p['b'+curBranch()]+=qty;stockMovements.push({productId:p.id,branch:Number(curBranch()),qty,type:'Receipt'});
-    state.purchases.unshift({id:'GRN-DEMO-'+(state.purchases.length+1),supplier:$('#receive-supplier').value,branch:Number(curBranch()),items:qty,total:round(p.cost*qty)});
-    closeModal();render();notify('Sample stock received');
-  };
-}
 const originalAction=handleAction;
 handleAction = function(action) {
   if(['checkout','scan','transfer','purchase','expense','stocktake'].includes(action)&&!requireBranch())return;
@@ -526,7 +282,7 @@ function exportReport() {
     [],['Invoice','Date','Hour','Branch','Method','Barcode','SKU','Category','Product','Size','Color','Net units','Net revenue','Gross profit','Discount'],
     ...rows.flatMap(s=>s.lines.map(l=>{
       const p=products.find(p=>p.id===l.productId);
-      return [s.id,s.date,s.hour,branchLabel(s.branch),s.method,l.barcode||p.barcode,l.sku||p.sku,categoryName(p.categoryId),p.name,p.size,p.color,l.qty*(l.refund?-1:1),l.revenue,l.profit,l.discount];
+      return [s.id,s.date,s.hour,branchLabel(s.branch),s.method,l.barcode||p.barcode,l.sku||p.sku,l.categoryLabel||categoryName(p.categoryId),l.productName||p.name,l.size||p.size,l.color||p.color,l.qty*(l.refund?-1:1),l.revenue,l.profit,l.discount];
     }))];
   if(state.page==='expenses'){
     const expenses=state.expenses.filter(item=>item.date.startsWith(period)&&scoped(item.branch));
@@ -551,35 +307,9 @@ function exportReport() {
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const link=document.createElement('a');link.href=url;link.download=APP_CONFIG.brand.toLowerCase()+'-v1.2-'+period+'-'+branchLabel(curBranch()).toLowerCase().replaceAll(' ','-')+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-function bindV11() {
-  document.querySelectorAll('[data-v11]').forEach(b=>b.onclick=()=>{
-    if(b.dataset.v11==='receive')return receiveForm();
-    if(state.role!=='owner')return;
-    openModal('<h2>Create category</h2>'+field('Category name','category-name')+'<div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="category-save">Save</button></div>');
-    $('#category-save').onclick=()=>{
-      const name=$('#category-name').value.trim();
-      if(!name||categories.some(c=>c.name.toLowerCase()===name.toLowerCase()))return notify('Enter a unique category name');
-      categories.push({id:Math.max(...categories.map(c=>c.id))+1,name,code:'CAT'+String(Math.max(...categories.map(c=>c.id))+1),archived:false});closeModal();render();
-    };
-  });
-  document.querySelectorAll('[data-category-edit]').forEach(b=>b.onclick=()=>{
-    if(state.role!=='owner')return;
-    const c=categories.find(c=>c.id===Number(b.dataset.categoryEdit));
-    openModal('<h2>Rename category</h2>'+field('Category name','category-name','text',c.name)+'<div class="modal-foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="category-save">Save</button></div>');
-    $('#category-save').onclick=()=>{
-      const name=$('#category-name').value.trim();
-      if(!name||categories.some(x=>x.id!==c.id&&x.name.toLowerCase()===name.toLowerCase()))return notify('Enter a unique category name');
-      c.name=name;products.filter(p=>p.categoryId===c.id).forEach(p=>p.cat=name);closeModal();render();
-    };
-  });
-  document.querySelectorAll('[data-category-archive]').forEach(b=>b.onclick=()=>{if(state.role!=='owner')return;const c=categories.find(c=>c.id===Number(b.dataset.categoryArchive));c.archived=!c.archived;render();});
-  document.querySelectorAll('[data-category-move]').forEach(b=>b.onclick=()=>{if(state.role!=='owner')return;const [id,step]=b.dataset.categoryMove.split(':').map(Number),i=categories.findIndex(c=>c.id===id);if(i+step<0||i+step>=categories.length)return;[categories[i],categories[i+step]]=[categories[i+step],categories[i]];render();});
-  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>showDetail(Number(b.dataset.detail)));
-  document.querySelectorAll('[data-label]').forEach(b=>b.onclick=()=>labels(Number(b.dataset.label)));
-}
 const originalBind=bind;
 bind = function() {
-  originalBind();bindV11();
+  originalBind();
   document.querySelectorAll('[data-add]').forEach(tile => {
     const product = products.find(p => p.id === Number(tile.dataset.add));
     if (product.image) tile.querySelector('.product-art').innerHTML = '<img class="detail-image" src="'+slug(product.image)+'" alt="">';
@@ -618,13 +348,14 @@ $('#modal-root').addEventListener('click',e=>{
   }
   if(action==='transfer'){
     const p=products.find(p=>p.id===Number($('#tr-product').value)),qty=Number($('#tr-qty').value),from=Number(curBranch());
+    if(!p.active||p.deleted||!availableAt(p,from)||!availableAt(p,from===1?'2':'1'))return notify('The variant must be active and available in both transfer branches');
     if(!Number.isInteger(qty)||qty<1||qty>p['b'+from])return notify('Invalid quantity or insufficient sample stock');
     p['b'+from]-=qty;stockMovements.push({productId:p.id,branch:from,qty:-qty,type:'Transfer dispatch'});
     state.transfers.unshift({id:'TR-DEMO-'+(state.transfers.length+1),from,to:from===1?2:1,style:p.style,productId:p.id,qty,status:'In transit'});
     state.cart=[];closeModal();render();notify('Sample units dispatched into transit');return;
   }
   if(!state.cart.length)return;
-  if(state.cart.some(l=>l.qty>stock(products.find(p=>p.id===l.id))))return notify('Cart exceeds available branch stock');
+  if(state.cart.some(l=>!sellableVariant(products.find(p=>p.id===l.id))||l.qty>stock(products.find(p=>p.id===l.id))))return notify('Cart exceeds available branch stock');
   const t=totals(),discountRate=t.sub?t.discount/t.sub:0;
   const sale={id:'DEMO-'+(ledger.length+1),date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{timeZone:APP_CONFIG.timezone,hour:'2-digit',hour12:false}).format(new Date())),branch:Number(curBranch()),method:$('#pay-method').value,customerId:null,
     lines:state.cart.map(l=>saleLine(products.find(p=>p.id===l.id),l.qty,discountRate))};
@@ -635,7 +366,7 @@ $('#modal-root').addEventListener('click',e=>{
   ledger.push(sale);state.demoTransactions.push(sale);state.cart=[];state.discount=0;state.customer='';
   closeModal();render();
   openModal('<h2>Sample receipt generated</h2><div id="demo-receipt" class="receipt"><h3>'+APP_CONFIG.brand+'</h3><p>'+sale.id+' · '+branchLabel(sale.branch)+' · '+today+'</p>'+
-    table(['Item / SKU','Units','Net amount'],sale.lines.map(l=>[slug(products.find(p=>p.id===l.productId).name+' / '+l.sku),l.qty,money(l.revenue)]))+
+    table(['Item / SKU','Units','Net amount'],sale.lines.map(l=>[slug(l.productName+' / '+l.sku),l.qty,money(l.revenue)]))+
     '<p>Discount '+money(t.discount)+' · Total '+money(t.total)+' · '+slug(sale.method)+'</p><p>DEMONSTRATION — NOT A TAX INVOICE</p></div><div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" onclick="window.print()">Print demo receipt</button></div>');
   notify('Demo sale added to reports and sample stock');
 },true);

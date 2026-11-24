@@ -1,4 +1,4 @@
-# QAHAF — Fashion POS client demo V1.2
+# QAHAF — Advanced Fashion POS · Phase 2 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
 
@@ -8,7 +8,7 @@ Open `index.html` in a web browser (no build step). The demo also works via any 
 
 ## Phase 1 app shell
 
-The grouped sidebar preserves the existing operational screens. Products & Inventory has Inventory, Products and Categories tabs. Marketing exposes the existing offer-text copy workflow. Damage & Dead Stock and Funds & Accounts have planned labels. Monthly Overview, Reports and CSV exports belong to the Owner preview. Managers retain operational access in their assigned branch.
+The grouped sidebar preserves the existing operational screens. Products & Inventory has All Products, Stock Report, Low Stock, Dead Stock and Defective Stock tabs, with a separate Categories management screen. Dead/Defective calculations are clearly marked for Phase 5. Marketing exposes the existing offer-text copy workflow. Damage & Dead Stock and Funds & Accounts have planned labels. Monthly Overview, Reports and financial CSV exports belong to the Owner preview. Operational catalog/stock exports follow branch scope, with aggregate values limited to Owner. Managers retain operational access in their assigned branch.
 
 The header identifies browser-only role simulation. Every page title shows its branch scope. `config.js` centralizes identity, branch names, assignment and navigation. Design tokens remain in `style.css`.
 
@@ -28,18 +28,22 @@ The tests start a local static server and check desktop 1440/1024 and mobile 390
 
 The application still opens as a static site. Node.js is used for development tests. Hardware scanner/printer acceptance and production authentication remain scheduled for the later approved phases.
 
-## V1.2 client review
+## Current client review
 
 - Owner branch selection persists in this browser. Combined, New Market, and Dakbangla apply across screens and CSV reports.
 - The demo Manager is assigned permanently to New Market. The role selector simulates access for client review.
 - Daily Overview defaults to today in Asia/Dhaka. Monthly Overview and Profit analytics share the selected month. Expenses and customer reports use that month too.
 - A deterministic 90-day sample sales ledger supplies invoices, discounts, refunds, payment methods, item/category performance and gross profit. Revenue and profit include refund reversals. Average invoice is net revenue divided by sales invoice count.
 - Operating profit equals gross profit less expenses. Every expense belongs to one branch. Combined reports sum the two branches without allocating or splitting expenses. Inventory value always reflects current stock at catalog cost.
-- Owner manages shared categories. Both roles can add a category inside product entry. Add New Product creates size/color variants, unique company-wide SKUs and immutable barcodes, descriptions, price/cost, inclusive-by-default VAT metadata, optional images and initial stock in a selected branch. Save, Save & Add Another, and Save & Print Barcode actions are available. Auto SKUs use stable category codes and sequential product numbers. Manual SKU changes retain prior references and stable variant IDs. Archive keeps historical category references.
-- Inventory supports barcode/SKU lookup, size/color matrices, sample receiving, transfer dispatch/receipt, and label printing from rows and details.
+- Add Product and Edit Product support shared category/subcategory, description, pattern/design, up to six photos, size/color combinations, per-variant buying/selling prices and inclusive-by-default VAT metadata. Auto SKUs use stable category codes and sequential product numbers. Manual SKU edits retain aliases and stable IDs. Duplicate SKUs, historical aliases and barcode identities are reserved company-wide.
+- Save Product and Save & Add Another create zero-stock catalog variants. Save & Receive Stock prepares intended branch quantities. Purchases shows these session-only preparations. No save, preparation or catalog import posts stock or an unlinked purchase. Supplier receipt accounting is Phase 3.
+- Owner manages taxonomy, status, safe deletion and bulk category/price/status changes. Both roles retain inline taxonomy creation and branch-scoped availability management. Bulk changes require validation and preview. Existing stock/history prevents deletion, while deactivation preserves references.
+- All Products, Stock Report and Low Stock support category filters and name/SKU/barcode lookup, exact variant details and size/color matrices. The low-stock threshold is 5 in `config.js`. Owner sees current stock buying and marked selling values. Catalog buying-price suggestions are separate from the unchanged sample carrying costs.
+- Availability is branch-specific and never moves quantities. Stock or unresolved transfers prevent removal of availability. Manager creation, availability, preparations and imports are restricted to New Market. Product definitions remain company-wide.
+- CSV import supports validation and preview with all-or-nothing, new-variant creation. Catalog and stock exports follow active filters and branch scope. See the format below.
 - POS accepts barcode plus Enter in the scan field. F2 focuses it. Fast HID scans also work when focus is outside editable fields. Other input fields retain normal typing. Repeated scans respect branch stock limits.
-- Sample checkout updates the in-memory sales ledger and branch stock. Receiving and transfers update sample on-hand stock. Combined requires a specific branch for operational transactions.
-- Code 128 labels use locally bundled JsBarcode 3.12.1 under its MIT license. Print 1–100 labels at 58 or 80 mm. Reprints retain the same barcode. Use 100% print scale and validate a physical print with the demonstration scanner.
+- Sample checkout updates the in-memory sales ledger and branch stock. Existing transfers update sample on-hand stock. Receiving prepares a Phase 3 draft without posting quantities. Combined requires a specific branch for operational transactions.
+- Code 128 labels use locally bundled JsBarcode 3.12.1 under its MIT license. Preview and print 1–100 individual/bulk labels, width 40–100 mm and minimum height 25–100 mm, with optional selling price. Reprints retain the same barcode. Use 100% print scale and validate a physical print with the demonstration scanner.
 
 ## Demo features
 
@@ -47,10 +51,28 @@ The application still opens as a static site. Node.js is used for development te
 - Manager profile: one assigned branch, with identical operational modules scoped to that branch.
 - Sample dashboards, product variants, unique example barcodes, stock, purchasing, transfers, expenses, profitability, customers and settings.
 - Sample checkout: add products, scan example barcodes via typing/keyboard, change quantities, discount flat or %, preview a non-tax sample receipt and use browser print.
-- Sample expenses and transfer/purchasing requests, local only until refresh.
+- Sample expenses, transfers and receiving preparations, local only until refresh.
 - Owner report CSV export. Expense and contact exports follow their visible branch/month datasets.
 
 Physical USB scanner and printer validation requires the demonstration hardware. Keyboard scan simulation and browser print layouts can be tested in Chromium. VAT mode is catalog metadata. Report prices are illustrative net-of-VAT amounts. Only the Owner branch preference persists locally.
+
+## Catalog CSV format
+
+Use **Import CSV → Download template**, or paste CSV text and choose **Validate & Preview**. Nothing changes until every row is valid and **Import catalog only** is selected. Editing the file invalidates the preview. Maximum 500 variants and 2 MB per uploaded file. Quoted commas, quotes and multiline descriptions are supported.
+
+Columns are:
+
+```text
+product_key,name,category_code,subcategory,description,size,color,pattern,design,sku,barcode,buying_price,selling_price,vat_mode,branch,available,active
+```
+
+Required columns are `product_key`, `name`, `category_code`, `size`, `color`, `buying_price` and `selling_price`. Rows with the same `product_key` form one new style and must share name/category/subcategory/description/pattern/design, with unique size/color combinations. Category codes must already exist. Subcategories must match their category. Blank SKU/barcode cells receive unique generated identities. Explicit barcodes must contain 6–24 digits. VAT accepts included/inclusive, excluded/exclusive or exempt, defaulting to included.
+
+Branch accepts the selected branch name/ID, or Combined for Owner in Combined scope. `available` and `active` default to true and accept true/false, yes/no or 1/0. Manager imports must use the assigned branch. Prices must be finite, buying nonnegative and selling at least 0.01. Imports create new zero-stock variants. Existing SKUs/barcodes are rejected, so exports are reference files rather than an overwrite/update mechanism. Use Edit Product to update existing identities. Stock/quantity columns are rejected until linked opening purchases are implemented in Phase 3.
+
+## Phase boundary
+
+Phase 2 is complete for client review. Supplier invoices, receipt posting, supplier payments/dues/returns, cost-bearing opening imports and moving weighted-average costing remain Phase 3. Dead/defective stock calculations remain Phase 5. VAT is still metadata and tax calculations remain scheduled for later phases. No later module is implemented by this iteration.
 
 ## Important limitations
 

@@ -1,61 +1,5 @@
-const { test, before, after } = require('node:test');
-const assert = require('node:assert/strict');
-const http = require('node:http');
-const path = require('node:path');
-const fs = require('node:fs');
-const os = require('node:os');
-const { chromium } = require('playwright');
+const {test,assert,path,fs,os,root,session,go}=require('./browser.cjs');
 
-const root = path.resolve(__dirname, '..');
-const prefix = '/fashion-pos-demo/';
-const contentTypes = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.png':'image/png' };
-let server;
-let browser;
-let baseUrl;
-
-before(async () => {
-  server = http.createServer((request, response) => {
-    const pathname = new URL(request.url, 'http://localhost').pathname;
-    const relative = pathname.slice(prefix.length) || 'index.html';
-    const file = path.resolve(root, relative);
-    if (!pathname.startsWith(prefix) || !file.startsWith(root + path.sep)) {
-      response.writeHead(404).end();
-      return;
-    }
-    fs.readFile(file, (error, data) => {
-      if (error) response.writeHead(404).end();
-      else response.writeHead(200, { 'Content-Type':contentTypes[path.extname(file)] || 'text/plain' }).end(data);
-    });
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  baseUrl = process.env.QAHAF_BASE_URL || 'http://127.0.0.1:' + server.address().port + prefix;
-  const executablePath = process.env.CHROMIUM_PATH || (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
-  browser = await chromium.launch({ executablePath, args:['--no-sandbox'] });
-});
-after(async () => {
-  await browser?.close();
-  if(server) await new Promise(resolve=>server.close(resolve));
-});
-
-async function session(t, viewport = { width:1440, height:1000 }) {
-  const context = await browser.newContext({ viewport, isMobile:viewport.width<600, hasTouch:viewport.width<600, acceptDownloads:true });
-  const page = await context.newPage();
-  const errors = [];
-  page.on('pageerror', error=>errors.push(error.message));
-  t.after(async () => {
-    await context.close();
-    assert.deepEqual(errors, [], 'browser page errors');
-  });
-  await page.goto(baseUrl);
-  return page;
-}
-async function go(page, route) {
-  const mobile = page.viewportSize().width <= 850;
-  if (mobile) await page.locator('#nav-toggle').click();
-  const parent = ['inventory','products','categories'].includes(route) ? 'inventory' : route;
-  await page.locator('#nav [data-page="'+parent+'"]').click();
-  if (route !== parent) await page.locator('[data-tab="'+route+'"]').click();
-}
 async function csvDownload(page) {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -63,13 +7,12 @@ async function csvDownload(page) {
   ]);
   return fs.readFileSync(await download.path(), 'utf8');
 }
-async function saveProduct(page, name, { sizes='M, L', colors='Black, Navy', qty='3', branch='2', action='Save' } = {}) {
-  await page.getByRole('button',{ name:'Add New Product' }).click();
+async function saveProduct(page, name, { sizes='M, L', colors='Black, Navy', action='Save Product' } = {}) {
+  await page.locator('[data-action="product-form"]').click();
   await page.locator('#p-name').fill(name);
   await page.locator('#p-sizes').fill(sizes);
   await page.locator('#p-colors').fill(colors);
-  if (await page.locator('#p-branch').isEnabled()) await page.locator('#p-branch').selectOption(branch);
-  await page.locator('#p-stock').fill(qty);
+  await page.locator('#generate-variants').click();
   await page.getByRole('button',{ name:action, exact:true }).click();
 }
 async function discardDialog(page) {
@@ -95,12 +38,12 @@ for (const [width,height] of [[1440,1000],[1024,768],[390,844],[360,800]]) {
     assert.equal(await page.locator('#nav button').filter({ hasText:'Funds & Accounts' }).count(),0);
     assert.match(await page.locator('#nav').textContent(),/Planned · Phase 5/);
     await go(page,'inventory');
-    await page.getByRole('tab',{name:'Inventory',exact:true}).focus();
+    await page.getByRole('tab',{name:'Stock Report',exact:true}).focus();
     await page.keyboard.press('ArrowRight');
-    assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(),'Products');
-    assert.equal(await page.locator('#tab-products').evaluate(el=>el===document.activeElement),true);
+    assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(),'Low Stock');
+    assert.equal(await page.locator('#tab-lowstock').evaluate(el=>el===document.activeElement),true);
     await page.keyboard.press('End');
-    assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(),'Categories');
+    assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(),'Defective Stock');
     await page.evaluate(()=>window.scrollTo(0,600));
     assert.ok(await page.locator('.topbar').evaluate(el=>Math.abs(el.getBoundingClientRect().top)<2));
     if (width<851) {
@@ -158,9 +101,9 @@ test('Owner reports, branch/date filters, CSV and preserved sample reconciliatio
   await page.locator('#report-period').fill('2000-01-01');
   assert.match(await page.locator('#content').innerText(),/No sample records/);
   await go(page,'inventory');
-  await page.getByRole('button',{name:'Add New Product'}).click();
-  assert.equal(await page.locator('#p-branch').inputValue(),'2');
-  assert.equal(await page.locator('#p-branch').isDisabled(),true);
+  await page.locator('[data-action="product-form"]').click();
+  assert.equal(await page.locator('[data-form-availability]').count(),1);
+  assert.equal(await page.locator('[data-form-availability]').getAttribute('data-form-availability'),'2');
   await page.keyboard.press('Escape');
 });
 
@@ -205,7 +148,7 @@ test('Manager operational scope and guarded financial routes and exports', async
 test('modal focus, dirty drafts, navigation guard and keyboard dismissal', async t => {
   const page=await session(t);
   await go(page,'products');
-  await page.getByRole('button',{name:'Add New Product'}).click();
+  await page.locator('[data-action="product-form"]').click();
   assert.equal(await page.locator('[role=dialog]').getAttribute('aria-modal'),'true');
   assert.equal(await page.locator('#app').evaluate(el=>el.inert),true);
   assert.equal(await page.locator('#p-name').evaluate(el=>el===document.activeElement),true);
@@ -229,7 +172,7 @@ test('modal focus, dirty drafts, navigation guard and keyboard dismissal', async
   await page.getByRole('button',{name:'Discard changes'}).click();
   assert.equal(await page.locator('#overlay').count(),0);
   assert.equal(await page.locator('#app').evaluate(el=>el.inert),false);
-  assert.equal(await page.getByRole('button',{name:'Add New Product'}).evaluate(el=>el===document.activeElement),true);
+  assert.equal(await page.locator('[data-action="product-form"]').evaluate(el=>el===document.activeElement),true);
 });
 
 test('barcode/cart limits, typing safety, scope confirmation and checkout printing', async t => {
@@ -274,50 +217,44 @@ test('barcode/cart limits, typing safety, scope confirmation and checkout printi
   await page.keyboard.press('Escape');
 });
 
-test('product variants and SKUs, Manager creation, receiving and label print media', async t => {
+test('catalog-only variants, Manager creation, receiving preparation and barcode print media', async t => {
   const page=await session(t);
   await go(page,'products');
-  await saveProduct(page,'Owner sample',{action:'Save & Print Barcode'});
-  await page.locator('[data-print-variant]').first().waitFor();
-  assert.equal(await page.locator('[data-print-variant]').count(),4);
+  await saveProduct(page,'Owner sample');
   const created=await page.evaluate(()=>products.filter(p=>p.name==='Owner sample'));
+  assert.equal(created.length,4);
   assert.equal(new Set(created.map(p=>p.sku)).size,4);
   assert.equal(new Set(created.map(p=>p.barcode)).size,4);
-  assert.ok(created.every(p=>p.b1===0&&p.b2===3));
+  assert.ok(created.every(p=>p.b1===0&&p.b2===0));
+  await page.evaluate(ids=>labels(ids[0],ids),created.map(p=>p.id));
+  assert.equal(await page.locator('[data-print-variant]').count(),4);
   await page.evaluate(()=>window.print=()=>{});
   await page.locator('#print-labels').click();
   await page.emulateMedia({media:'print'});
   assert.equal(await page.locator('#print-root .barcode-label').count(),4);
   assert.equal(await page.locator('#print-root').isVisible(),true);
   assert.equal(await page.locator('#app').isVisible(),false);
-  assert.match(await page.locator('#print-root').innerText(),/Dakbangla/);
-  await page.pdf({path:path.join(os.tmpdir(),'qahaf-phase1-labels.pdf')});
+  assert.match(await page.locator('#print-root').innerText(),/QAHAF/);
+  await page.pdf({path:path.join(os.tmpdir(),'qahaf-phase2-labels.pdf')});
   await page.emulateMedia({media:'screen'});
   await page.evaluate(()=>window.dispatchEvent(new Event('afterprint')));
   await page.keyboard.press('Escape');
   await page.locator('#role').selectOption('manager');
-  await saveProduct(page,'Manager sample',{sizes:'L',colors:'Black',qty:'2',action:'Save'});
+  await saveProduct(page,'Manager sample',{sizes:'L',colors:'Black'});
   const manager=await page.evaluate(()=>products.find(p=>p.name==='Manager sample'));
-  assert.equal(manager.b1,2);assert.equal(manager.b2,0);
-  await page.getByRole('button',{name:'Add New Product'}).click();
-  await page.locator('#p-name').fill('Duplicate');
-  await page.locator('#p-sizes').fill('M');await page.locator('#p-colors').fill('Navy');await page.locator('#p-colors').press('Tab');
-  await page.locator('#p-sku-mode').selectOption('manual');
-  await page.locator('[data-draft-sku]').fill(created[0].sku);
-  await page.getByRole('button',{name:'Save',exact:true}).click();
-  assert.match(await page.locator('#form-error').innerText(),/already assigned/);
-  await discardDialog(page);
+  assert.equal(manager.b1,0);assert.equal(manager.b2,0);
+  assert.deepEqual(manager.availability,{'1':true,'2':false});
+  await page.evaluate(id=>receiveForm([id]),manager.id);
+  await page.locator('[data-receive-quantity]').fill('5');
+  await page.getByRole('button',{name:'Save receiving preparation'}).click();
+  const received=await page.evaluate(id=>({product:products.find(p=>p.id===id),draft:state.receivingDrafts.at(-1)}),manager.id);
+  assert.equal(received.product.b1,0);assert.equal(received.product.b2,0);
+  assert.equal(received.draft.branch,1);assert.equal(received.draft.lines[0].qty,5);
   await go(page,'inventory');
-  await page.locator('[data-v11="receive"]').click();
-  await page.locator('#receive-variant').selectOption(String(created[0].id));
-  await page.locator('#receive-qty').fill('5');
-  await page.getByRole('button',{name:'Receive units'}).click();
-  const received=await page.evaluate(id=>products.find(p=>p.id===id),created[0].id);
-  assert.equal(received.b1,5);assert.equal(received.b2,3);
-  await page.locator('#table-search').fill(created[0].sku);await page.locator('#table-search').press('Enter');
-  assert.match(await page.locator('#content').innerText(),/Exact match/);
-  await page.locator('[data-label="'+created[0].id+'"]').first().click();
-  assert.equal(await page.locator('#barcode-preview').textContent(),created[0].barcode);
+  await page.locator('#table-search').fill(manager.sku);await page.locator('#table-search').press('Enter');
+  assert.match(await page.locator('#content').innerText(),/Exact variant/);
+  await page.locator('[data-label="'+manager.id+'"]').first().click();
+  assert.equal(await page.locator('#label-preview svg text').textContent(),manager.barcode);
   await page.keyboard.press('Escape');
 });
 
@@ -353,7 +290,7 @@ test('existing transfers and branch expenses stay isolated and reconcile', async
 
 test('shared configuration and palette contrast', async t => {
   const page=await session(t);
-  for(const filename of ['app.js','v11.js','shell.js','index.html']) {
+  for(const filename of ['app.js','v11.js','catalog.js','shell.js','index.html']) {
     const source=fs.readFileSync(path.join(root,filename),'utf8');
     assert.ok(!/New Market|Dakbangla/.test(source),filename);
     assert.ok(!/THREAD|Retail OS|Gulshan|Dhanmondi/.test(source),filename);

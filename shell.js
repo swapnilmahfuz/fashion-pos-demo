@@ -68,6 +68,7 @@ function resetCheckoutScope() {
   state.cart=[];
   state.discount=0;
   state.customer='';
+  catalogSelection.clear();
 }
 controls = function() {
   state.branch = state.role==='manager' ? assignedBranch : ownerBranch;
@@ -100,9 +101,9 @@ controls = function() {
   };
 };
 function contextualTabs() {
-  if(!['inventory','products','categories'].includes(state.page))return '';
+  if(!catalogViews.includes(state.page))return '';
   return '<div class="context-tabs" role="tablist" aria-label="Products and inventory views">'+
-    ['inventory','products','categories'].map(page=>
+    catalogViews.map(page=>
       '<button id="tab-'+page+'" role="tab" aria-selected="'+(state.page===page)+'" aria-controls="workspace-panel" tabindex="'+(state.page===page?0:-1)+'" data-tab="'+page+'">'+APP_CONFIG.pages[page]+'</button>'
     ).join('')+'</div>';
 }
@@ -141,7 +142,7 @@ render = function() {
   const group=APP_CONFIG.navigation.find(group=>group.items.includes(item));
   $('#crumb').textContent=item?.label===APP_CONFIG.pages[state.page] ? group.label : (item?.label||'Workspace');
   $('#crumb2').textContent=APP_CONFIG.pages[state.page]||'Dashboard';
-  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,purchases,transfers,expenses,finance:reportsPage,customers,marketing:marketingPage,settings};
+  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:catalogPage,defective:catalogPage,purchases,transfers,expenses,finance:reportsPage,customers,marketing:marketingPage,settings};
   if(!pages[state.page])state.page='overview';
   const tabs=contextualTabs();
   $('#content').innerHTML=tabs+'<div id="workspace-panel" '+(tabs?'role="tabpanel" aria-labelledby="tab-'+state.page+'"':'')+'>'+pages[state.page]()+'</div>';
@@ -150,7 +151,7 @@ render = function() {
   document.querySelectorAll('[data-tab]').forEach(button=>{
     button.onclick=()=>navigate(button.dataset.tab);
     button.onkeydown=event=>{
-      const order=['inventory','products','categories'];
+      const order=catalogViews;
       let index=order.indexOf(state.page);
       if(event.key==='ArrowRight')index=(index+1)%order.length;
       else if(event.key==='ArrowLeft')index=(index+order.length-1)%order.length;
@@ -166,6 +167,8 @@ render = function() {
 // Protect an edited SKU when navigating from its detail dialog to labels/details.
 $('#modal-root').addEventListener('click',event=>{
   const button=event.target.closest('[data-label],[data-detail]');
+  const edit=event.target.closest('[data-edit-product]');
+  if(edit&&modalIsDirty()){event.preventDefault();event.stopImmediatePropagation();requestModalClose(()=>productForm(Number(edit.dataset.editProduct)));return;}
   if(!button||!modalIsDirty())return;
   event.preventDefault();event.stopImmediatePropagation();
   const id=Number(button.dataset.label||button.dataset.detail);

@@ -5,16 +5,18 @@ const APP_CONFIG = Object.freeze({
   locale: 'en-BD',
   timezone: 'Asia/Dhaka',
   currency: 'BDT',
-  release: 'V1.2',
+  release: 'Phase 2 demo',
   branchPreferenceKey: 'qahaf-owner-branch',
   managerBranch: '1',
+  lowStockThreshold: 5,
   branches: Object.freeze([
     Object.freeze({ id: '1', name: 'New Market' }),
     Object.freeze({ id: '2', name: 'Dakbangla' })
   ]),
   pages: Object.freeze({
     overview: 'Dashboard', monthly: 'Monthly Overview', pos: 'POS & Sales',
-    inventory: 'Inventory', products: 'Products', categories: 'Categories',
+    inventory: 'Stock Report', products: 'All Products', categories: 'Categories',
+    lowstock: 'Low Stock', deadstock: 'Dead Stock', defective: 'Defective Stock',
     purchases: 'Purchases', transfers: 'Stock Transfers', expenses: 'Expenses',
     customers: 'Contacts', finance: 'Reports', marketing: 'Marketing', settings: 'Settings'
   }),
@@ -26,7 +28,7 @@ const APP_CONFIG = Object.freeze({
     ] },
     { label: 'Operations', items: [
       { page: 'pos', label: 'POS & Sales', icon: '▣' },
-      { page: 'inventory', pages: ['inventory', 'products', 'categories'], label: 'Products & Inventory', icon: '◇' },
+      { page: 'inventory', pages: ['products', 'inventory', 'lowstock', 'deadstock', 'defective', 'categories'], label: 'Products & Inventory', icon: '◇' },
       { page: 'purchases', label: 'Purchases', icon: '▤' },
       { page: 'transfers', label: 'Stock Transfers', icon: '⇄' },
       { label: 'Damage & Dead Stock', icon: '▧', planned: 5 },

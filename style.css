@@ -159,3 +159,32 @@ body{font-family:var(--font-body)}
 .nav-item>span,.nav-future>span,.metric .symbol{font-family:var(--font-symbols);font-variant-emoji:text}
 .mobilebrand [data-brand]{font-size:14px;color:var(--white);letter-spacing:.6px}
 .header-field label{font-size:11px}
+
+/* Phase 2 catalog work surfaces. */
+.advanced-product-modal{width:min(1120px,100%)}
+.advanced-product-modal .input[data-variant-field=color],.advanced-product-modal .input[data-variant-field=size]{min-width:90px;width:110px}
+.price-input{min-width:100px;width:120px}
+.photo-grid{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}
+.photo-grid img{width:110px;height:100px;object-fit:cover;border:1px solid var(--line);border-radius:8px}
+.photo-grid label{display:grid;gap:6px;font-size:11px}
+.availability-fields{border:1px solid var(--line);border-radius:10px;margin:18px 0;padding:14px;display:flex;gap:18px;flex-wrap:wrap}
+.availability-fields legend{font-size:12px;font-weight:700}
+.availability-fields label{font-size:12px}
+.variant-builder{padding:16px;background:var(--soft);border-radius:10px;margin:16px 0}
+.cell-note{display:block;color:var(--muted);font-size:11px;margin-top:5px}
+.catalog-row-actions{display:grid;grid-template-columns:repeat(2,max-content);gap:6px;min-width:250px;max-width:none;white-space:normal}
+.catalog-note{margin-bottom:18px}
+.bulk-toolbar{padding:12px;background:var(--soft);border-radius:9px}
+#form-error,#receive-error,#bulk-error,#delete-error,#taxonomy-error,#label-error,#import-error{font-size:12px;line-height:1.6;color:var(--red)}
+#inline-taxonomy{padding:16px;background:var(--soft);border-radius:9px}
+#variant-draft,#import-preview-table{max-height:390px;overflow:auto;margin:16px 0}
+#variant-draft th,#import-preview-table th{position:sticky;top:0;background:var(--white);z-index:1}
+.label-preview-grid{overflow:auto;max-height:320px;margin:16px 0}
+.label-preview-grid .barcode-label{display:inline-flex;flex-direction:column;justify-content:center;background:#fff;color:#000;margin:4px;vertical-align:top}
+.barcode-label{min-height:25mm;overflow-wrap:anywhere;justify-content:center}
+.barcode-label svg{flex-shrink:0}
+#receive-form .field,#taxonomy-form .field,#bulk-form .field{width:100%;margin:8px 0 16px}
+#bulk-branch-fields label{display:block}
+#product-form .product-save-actions{position:sticky;bottom:-25px;z-index:4;background:var(--white);padding:14px 0 0;border-top:1px solid var(--line)}
+@media(max-width:850px){.context-tabs{flex-wrap:nowrap;overflow:auto}.context-tabs [role=tab]{white-space:nowrap;flex-shrink:0}.advanced-product-modal{padding:18px}.bulk-toolbar .btn{flex:1;justify-content:center}.catalog-row-actions{min-width:250px}#product-form .product-save-actions{bottom:-18px}}
+@media print{.barcode-label{display:flex;flex-direction:column;justify-content:center}}
