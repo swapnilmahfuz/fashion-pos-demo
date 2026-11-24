@@ -185,7 +185,7 @@ document.addEventListener('keydown',event=>{
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   }
 });
-document.title=APP_CONFIG.brand+' — '+APP_CONFIG.businessType+' POS Demo';
+document.title=APP_CONFIG.brand+' — '+APP_CONFIG.businessType+' POS Demo '+APP_CONFIG.release;
 document.querySelectorAll('[data-brand]').forEach(element=>element.textContent=APP_CONFIG.brand);
 document.querySelectorAll('[data-business]').forEach(element=>element.textContent=APP_CONFIG.businessType);
 document.querySelectorAll('[data-brand-initial]').forEach(element=>element.textContent=APP_CONFIG.brand[0]);
