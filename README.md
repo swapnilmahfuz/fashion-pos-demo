@@ -1,6 +1,12 @@
-# QAHAF — Advanced Fashion POS · Phase 3 demo
+# QAHAF — Advanced Fashion POS · Phase 4 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
+
+## Phase 4 client walkthrough
+
+Select a selling branch, open POS & Sales and scan a variant. Use Edit item to change quantity or its manual discount. Discounts & Offers manages scheduled branch campaigns. Hold / resume carts keeps multiple in-progress sales. Receipt & VAT settings lets the Owner set the illustrative tax rate and footer.
+
+Checkout defaults to a full Cash Box payment. Add a second payment row for split tender, or enter a phone number and allow an unpaid balance. Open Sales History to collect dues, reprint a receipt, return a partial quantity or exchange a variant. Return credits reduce unpaid balances first. Resellable and defective returns retain separate quantities and cost values. Refresh resets the demo.
 
 ## Preview locally
 
@@ -54,7 +60,7 @@ The application still opens as a static site. Node.js is used for development te
 - Sample expenses, transfers and receiving preparations, local only until refresh.
 - Owner report CSV export. Expense and contact exports follow their visible branch/month datasets.
 
-Physical USB scanner and printer validation requires the demonstration hardware. Keyboard scan simulation and browser print layouts can be tested in Chromium. VAT mode is catalog metadata. Report prices are illustrative net-of-VAT amounts. Only the Owner branch preference persists locally.
+Physical USB scanner and printer validation requires the demonstration hardware. Keyboard scan simulation and browser print layouts can be tested in Chromium. New invoices use the configured demo VAT rate and preserve VAT separately from sales revenue. Only the Owner branch preference persists locally.
 
 ## Catalog CSV format
 

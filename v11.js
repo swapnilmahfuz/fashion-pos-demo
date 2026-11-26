@@ -182,7 +182,7 @@ overview = function() {
     ].map(([name,value])=>metric(name,value,'Selected date')).join('')+'</div>'+
     chart('Hourly net sales',Array.from({length:24},(_,hour)=>({label:String(hour).padStart(2,'0'),revenue:figures(rows.filter(s=>s.hour===hour)).revenue})))+
     section('Item-wise sales',itemTable(rows))+section('Category performance',categoryTable(rows))+
-    section('Payment methods',table(['Method','Net revenue'],methods.map(m=>[m,money(figures(rows.filter(s=>s.method===m)).revenue)])))+
+    section('Payment methods',paymentBreakdown(rows))+
     '<p class="note">Revenue includes refund reversals. Gross profit is shown in the Owner preview. Items sold count outbound units. Average invoice is net revenue divided by sales invoice count. All amounts are illustrative, net of VAT.</p>'+noReal;
 };
 function bestSellingTable(rows) {
@@ -355,25 +355,7 @@ $('#modal-root').addEventListener('click',e=>{
     state.transfers.unshift({id:'TR-DEMO-'+(state.transfers.length+1),from,basis,to:from===1?2:1,style:p.style,productId:p.id,qty,status:'In transit'});
     state.cart=[];closeModal();render();notify('Sample units dispatched into transit');return;
   }
-  if(!state.cart.length)return;
-  if(state.cart.some(l=>!sellableVariant(products.find(p=>p.id===l.id))||l.qty>stock(products.find(p=>p.id===l.id))))return notify('Cart exceeds available branch stock');
-  const t=totals(),discountRate=t.sub?t.discount/t.sub:0;
-  const sale={id:'DEMO-'+(ledger.length+1),date:today,hour:Number(new Intl.DateTimeFormat('en-GB',{timeZone:APP_CONFIG.timezone,hour:'2-digit',hour12:false}).format(new Date())),branch:Number(curBranch()),method:$('#pay-method').value,customerId:null,
-    lines:state.cart.map(l=>saleLine(products.find(p=>p.id===l.id),l.qty,discountRate))};
-  // Assign rounding remainder to the final line so invoice and report totals agree.
-  const remainder=round(t.total-sale.lines.reduce((n,l)=>n+l.revenue,0));
-  const last=sale.lines[sale.lines.length-1];last.revenue=round(last.revenue+remainder);last.profit=round(last.profit+remainder);last.discount=round(last.discount-remainder);
-  sale.lines.forEach(line=>{
-    const p=products.find(item=>item.id===line.productId), basis=issueValue(p,sale.branch,line.qty);
-    line.cogs=basis/100;line.unitCost=line.cogs/line.qty;line.profit=round(line.revenue-line.cogs);
-    moveStock(p,sale.branch,-line.qty,-basis,'Sale',sale.id,false);
-  });
-  ledger.push(sale);state.demoTransactions.push(sale);state.cart=[];state.discount=0;state.customer='';
-  closeModal();render();
-  openModal('<h2>Sample receipt generated</h2><div id="demo-receipt" class="receipt"><h3>'+APP_CONFIG.brand+'</h3><p>'+sale.id+' · '+branchLabel(sale.branch)+' · '+today+'</p>'+
-    table(['Item / SKU','Units','Net amount'],sale.lines.map(l=>[slug(l.productName+' / '+l.sku),l.qty,money(l.revenue)]))+
-    '<p>Discount '+money(t.discount)+' · Total '+money(t.total)+' · '+slug(sale.method)+'</p><p>DEMONSTRATION — NOT A TAX INVOICE</p></div><div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" onclick="window.print()">Print demo receipt</button></div>');
-  notify('Demo sale added to reports and sample stock');
+  if(action==='checkout')confirmRetailCheckout();
 },true);
 // A scanner can also start while focus is on the page itself. Editable fields
 // keep their keystrokes, including Enter. F2 always returns to the POS scan box.

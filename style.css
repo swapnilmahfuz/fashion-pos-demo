@@ -194,3 +194,11 @@ body{font-family:var(--font-body)}
 #receive-form .form-row>label{flex:1 1 10rem}
 #receive-form output{display:block;font-weight:700;padding:1rem 0}
 @media print{body:has(#demo-receipt) .modal>.toolbar{display:none!important}#demo-receipt .tablewrap{overflow:visible}#demo-receipt .tbl{white-space:normal}}
+#retail-checkout label,#customer-return label,#offer-form label,#collection label,#retail-item label{display:grid;gap:5px;margin:8px 0}
+#customer-return fieldset{border:1px solid var(--line);border-radius:8px;margin:10px 0;min-width:0}
+#replacement select,#promo-target{max-width:100%}
+.retail-receipt{margin:auto;max-width:100%;overflow-wrap:anywhere;font-family:var(--font-body)}
+.retail-receipt[data-layout="58mm"]{width:58mm}.retail-receipt[data-layout="80mm"]{width:80mm}.retail-receipt[data-layout="A4"]{width:186mm}
+.receipt-item{padding:8px 0;border-top:1px dashed var(--line);break-inside:avoid}
+@media print{body:has(.retail-receipt) .modal>:not(.retail-receipt){display:none!important}.retail-receipt{box-sizing:border-box;padding:2mm;color:black;background:white;font-size:10pt}}
+@media print{body:has(.retail-receipt) .modal-overlay,body:has(.retail-receipt) .modal{display:block;position:static;width:auto;max-width:none;height:auto;max-height:none;overflow:visible;margin:0;padding:0}}

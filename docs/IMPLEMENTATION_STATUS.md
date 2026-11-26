@@ -1,6 +1,20 @@
 # QAHAF Advanced Fashion POS implementation status
 
-Updated 26 November 2026. Phase 3 is complete for the session-only demo.
+Updated 26 November 2026. Phase 4 is complete for the session-only demo.
+
+## Phase 4 delivery
+
+POS & Sales provides barcode checkout, multiple held carts per branch, item quantity/discount editing, offers, receipt settings and searchable sales history. Resuming a held cart saves the current populated cart as a separate hold. Checkout rechecks available stock and uses the purchase ledger’s current branch carrying value. A confirmation identifier prevents a second posting.
+
+Active offers are evaluated in Dhaka time. The largest eligible unit discount wins, with creation order resolving ties. A manual unit discount overrides the automatic offer. The invoice discount applies to the remaining subtotal and is allocated to lines using cumulative rounding in paisa. VAT is calculated after discounts. Inclusive prices have VAT extracted, exclusive prices add VAT and exempt variants use zero. The Owner can set the demo rate, initially 0%, and the return-policy footer. Each invoice captures the prices, discounts, VAT, cost and policy used at sale.
+
+Checkout defaults to full Cash Box payment. Named accounts, split tenders and partial payment are supported. An outstanding balance requires a customer phone. Later collections reduce the due on the selected invoice and appear in the branch payment records. History includes invoice and customer filters, custom dates, scoped CSV and reprinting at 58 mm, 80 mm or A4. Older seeded sales and refunds are available as a historical summary. Their original refund links were absent from the Phase 3 data. Interactive returns and exchanges apply to invoices created by the new checkout.
+
+Each return references its original invoice, quantities, reason and disposition. Cumulative proportional reversal uses the original net sales, VAT and COGS snapshots. Resellable items restore branch inventory value. Defective items retain quantity and cost separately from sellable stock. A credit first reduces any unpaid balance. Remaining credit funds the linked replacement invoice or is refunded to the selected account. The replacement uses its current selling price, eligible campaign, VAT and branch carrying cost. Internal exchange offsets are excluded from actual payment receipts.
+
+Automated coverage includes scanner and stock limits, holds, offers and discount allocation, all three VAT modes, split/partial tenders, collections, duplicate confirmation, partial/full returns, defect isolation, exchanges, invoice/CSV history, receipt formats and desktop/mobile layouts. Phase 1–3 regression tests remain in the suite.
+
+**Phase 5 dependencies.** Defective-return records capture branch, variant, quantity, original cost and source return. Quarantine administration, repairs, recovery, write-offs, dead-stock ageing and expanded transfer reconciliation await Phase 5 approval. Account administration and statements remain Phase 6. Browser roles, money movements and operational data are session simulations. Physical printer feed and auto-cut require hardware acceptance.
 
 ## Phase 3 delivery
 
