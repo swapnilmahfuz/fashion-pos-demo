@@ -1,6 +1,12 @@
-# QAHAF — Advanced Fashion POS · Phase 6 demo
+# QAHAF — Advanced Fashion POS · Phase 7 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
+
+## Phase 7 client walkthrough
+
+Open **Reports & Analytics** as Owner. Select a report, branch and date range. In Profit & Loss, switch between Products, Categories, Invoice, Date, Customer and Day. Select **Linked session activity only** to analyze your own demo postings. Select a linked row to inspect its source. The supporting balances show purchasing and inventory separately from earned profit.
+
+Use **Download Report** for a numeric Excel workbook, CSV, PDF or full-table printout. Downloads include all rows matching the search and filters. Managers have an Operational Reports workspace for their assigned branch. The report formulas and data limits are in [the implementation status](docs/IMPLEMENTATION_STATUS.md).
 
 ## Phase 6 client walkthrough
 
@@ -34,7 +40,7 @@ Dialogs support focus trapping, keyboard dismissal, focus restoration and confir
 
 ## Run automated checks
 
-Use Node.js 20 or later.
+Use Node.js 20 or later and Poppler’s `pdftotext` for the PDF contents test.
 
 ```sh
 npm ci

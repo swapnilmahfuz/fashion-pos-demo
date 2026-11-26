@@ -3,7 +3,7 @@ const {test,assert,path,fs,os,root,session,go}=require('./browser.cjs');
 async function csvDownload(page) {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.locator('[data-action="report"]').click()
+    page.locator('#report-choice').count().then(async count=>{if(count){await page.getByText('Download Report',{exact:true}).click();await page.locator('[data-format=csv]').click();}else await page.locator('[data-action="report"]').click();})
   ]);
   return fs.readFileSync(await download.path(), 'utf8');
 }
@@ -84,7 +84,7 @@ test('Owner reports, branch/date filters, CSV and preserved sample reconciliatio
     await go(page,'finance');
     const expected=await page.evaluate(()=>figures(rowsFor(state.month)).revenue);
     const csv=await csvDownload(page);
-    assert.ok(csv.includes('"revenue","'+expected+'"'));
+    assert.ok(csv.includes('"Net sales excluding VAT","'+expected+'"'));
     assert.match(csv,/QAHAF/);
     assert.ok(csv.includes(await page.locator('[data-scope]').innerText()));
     await go(page,'expenses');

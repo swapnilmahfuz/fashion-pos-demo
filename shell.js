@@ -45,7 +45,7 @@ function navigate(page) {
 }
 nav = function() {
   $('#nav').innerHTML = APP_CONFIG.navigation.map(group=>{
-    const items=group.items.filter(item=>!item.owner||state.role==='owner');
+    const items=group.items.filter(item=>(!item.owner||state.role==='owner')&&(!item.manager||state.role==='manager'));
     if(!items.length)return '';
     return '<section class="nav-group"><h2>'+group.label+'</h2>'+items.map(item=>{
       if(item.planned)return '<div class="nav-future"><span aria-hidden="true">'+item.icon+'</span><div>'+item.label+'<small>Planned · Phase '+item.planned+'</small></div></div>';
@@ -132,7 +132,7 @@ function marketingPage() {
     section('Offer text','<p class="subtitle">The existing demo copies your message to the clipboard. Recipient selection, WhatsApp sharing and SMS delivery are planned for Phase 8.</p>')+noReal;
 }
 function reportsPage() {
-  return monthlyOverview().replace('<h1>Monthly overview</h1>','<h1>Reports</h1>');
+  return analyticsPage();
 }
 render = function() {
   controls();
@@ -142,7 +142,7 @@ render = function() {
   const group=APP_CONFIG.navigation.find(group=>group.items.includes(item));
   $('#crumb').textContent=item?.label===APP_CONFIG.pages[state.page] ? group.label : (item?.label||'Workspace');
   $('#crumb2').textContent=APP_CONFIG.pages[state.page]||'Dashboard';
-  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,funds:fundsPage,finance:reportsPage,customers,marketing:marketingPage,settings};
+  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,funds:fundsPage,finance:reportsPage,operationalReports:reportsPage,customers,marketing:marketingPage,settings};
   if(!pages[state.page])state.page='overview';
   const tabs=contextualTabs();
   $('#content').innerHTML=tabs+'<div id="workspace-panel" '+(tabs?'role="tabpanel" aria-labelledby="tab-'+state.page+'"':'')+'>'+pages[state.page]()+'</div>';

@@ -120,7 +120,7 @@ function invoiceStatus(i) {
           ? "Partial"
           : "Unpaid";
 }
-function payment(i, amount, account = "Cash Box", token = fundRef("PAY")) {
+function payment(i, amount, account = "Cash Box", token = fundRef("PAY"), timing="Payable settlement") {
   branchCheck(i.branch);
   const a = fundAccount(i.branch, account);
   findInvoice(i.id);
@@ -141,7 +141,7 @@ function payment(i, amount, account = "Cash Box", token = fundRef("PAY")) {
     "Operating",
     "Supplier",
     {
-      document: i.id,
+      document: i.id, timing,
       origin:
         amount < 0
           ? supplierReturns
@@ -262,7 +262,7 @@ function saveInvoice(input, draft) {
         "Supplier receipt",
         i.id,
       );
-    if (paid) payment(i, paid, input.account);
+    if (paid) payment(i, paid, input.account,undefined,"At receipt");
   }
   return i;
 }

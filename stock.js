@@ -1345,10 +1345,8 @@ inventory = function () {
 };
 const stockDashboard = overview;
 overview = function () {
-  const rows = valuationRows(
-    catalogProducts(),
-    scopedBranches().map((b) => Number(b.id)),
-  ).filter((r) => r.dead);
+  const scope = reportingContext({from:state.date,to:state.date});
+  const rows = stockAsOf(scope,state.date).filter(r=>r.dead);
   return (
     stockDashboard() +
     section(

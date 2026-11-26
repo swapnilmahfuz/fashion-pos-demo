@@ -293,7 +293,7 @@ function writeExpense({
   fundAudit(ref, "Expense recorded", original || doc.title);
   if (paid)
     fundEntry(a, -paid, "Expense payment", ref, "Operating", "Expense", {
-      document: ref,
+      document: ref, timing:"At expense entry",
     });
   return doc;
 }
@@ -317,7 +317,7 @@ function payExpense(d, value, account, token) {
   const a = fundAccount(d.branch, account);
   fundClaim(token);
   fundEntry(a, -value, "Expense payment", token, "Operating", "Expense", {
-    document: d.ref,
+    document: d.ref,timing:"Payable settlement",
   });
 }
 function correctExpense(d, token, reason, replacement = null) {
@@ -363,7 +363,7 @@ function correctExpense(d, token, reason, replacement = null) {
       token,
       "Operating",
       "Expense",
-      { document: d.ref, reverses: e.id, notes: reason },
+      { document: d.ref, reverses: e.id, timing:e.timing, notes: reason },
     );
   fundAudit(d.ref, "Reversed by " + token, reason);
 }
@@ -1025,7 +1025,7 @@ function reverseSettlement(e, token, why) {
     token,
     e.classification,
     e.source === "Expense" ? "Expense" : "Settlement reversal",
-    { document: e.document, reverses: e.id, notes: why },
+    { document: e.document, reverses: e.id, timing:e.timing, notes: why },
   );
   if (e.source === "Supplier")
     settlements.push({
