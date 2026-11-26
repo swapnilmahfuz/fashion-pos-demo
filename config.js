@@ -5,7 +5,7 @@ const APP_CONFIG = Object.freeze({
   locale: 'en-BD',
   timezone: 'Asia/Dhaka',
   currency: 'BDT',
-  release: 'Phase 2 demo',
+  release: 'Phase 3',
   branchPreferenceKey: 'qahaf-owner-branch',
   managerBranch: '1',
   lowStockThreshold: 5,

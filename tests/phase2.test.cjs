@@ -66,11 +66,11 @@ test('multi-variant prices, manual/automatic SKU validation and receiving prepar
   const variants=await page.evaluate(()=>products.filter(p=>p.name==='Multi Polo'));
   assert.equal(new Set(variants.map(p=>p.sku)).size,4);assert.equal(new Set(variants.map(p=>p.barcode)).size,4);
   assert.equal(variants[0].price,1890.5);assert.equal(variants[0].buyingPrice,810.25);assert.equal(variants[0].sku,'CLIENT-MANUAL-001');
-  await page.getByRole('button',{name:'Save receiving preparation'}).click();assert.match(await page.locator('#receive-error').innerText(),/Choose/);
+  await page.getByRole('button',{name:'Save draft'}).click();assert.match(await page.locator('#receive-error').innerText(),/Choose/);
   await page.locator('#receive-branch').selectOption('2');await page.locator('[data-receive-quantity]').first().fill('7');
-  await page.getByRole('button',{name:'Save receiving preparation'}).click();
+  await page.getByRole('button',{name:'Save draft'}).click();
   assert.ok(variants.every(p=>p.b1===0&&p.b2===0));
-  const draft=await page.evaluate(()=>state.receivingDrafts.at(-1));assert.equal(draft.branch,2);assert.equal(draft.lines.length,4);assert.equal(draft.lines[0].qty,7);
+  const draft=await page.evaluate(()=>invoices[0]);assert.equal(draft.branch,2);assert.equal(draft.lines.length,4);assert.equal(draft.lines[0].qty,7);
   const after=await audit(page);for(const key of ['moves','purchases','ledger'])assert.equal(after[key],before[key]);
   assert.deepEqual(after.stock.slice(0,22),before.stock);
 });
@@ -147,7 +147,7 @@ test('CSV preview validates all rows atomically, imports multiple variants and e
   const invalid=await csv(page,[importRow({sku:variants[0].sku}),importRow({product_key:'other',barcode:variants[0].barcode,category_code:'UNKNOWN',selling_price:'-1'})]);
   await page.locator('[data-catalog="import"]').click();await page.locator('#import-text').fill(invalid);await page.locator('#import-preview').click();
   assert.equal(await page.locator('#import-confirm').isDisabled(),true);assert.match(await page.locator('#import-preview-table').innerText(),/duplicate company-wide SKU/);assert.match(await page.locator('#import-preview-table').innerText(),/Barcode must be unique/);assert.equal(await page.evaluate(()=>products.length),24);
-  await page.locator('#import-text').fill('name,stock\nInjected,10');await page.locator('#import-preview').click();assert.match(await page.locator('#import-error').innerText(),/linked purchasing in Phase 3/);await close(page);
+  await page.locator('#import-text').fill('name,stock\nInjected,10');await page.locator('#import-preview').click();assert.match(await page.locator('#import-error').innerText(),/opening stock importer/);await close(page);
   await page.locator('#role').selectOption('manager');await page.locator('[data-catalog="import"]').click();await page.locator('#import-text').fill(await csv(page,[importRow({branch:'Dakbangla'})]));await page.locator('#import-preview').click();assert.match(await page.locator('#import-preview-table').innerText(),/assigned scope/);
   await page.locator('#import-text').fill(await csv(page,[importRow({branch:'New Market'})]));await page.locator('#import-preview').click();assert.equal(await page.locator('#import-confirm').isEnabled(),true);await page.locator('#import-confirm').click();
   assert.deepEqual(await page.evaluate(()=>products.at(-1).availability),{'1':true,'2':false});
@@ -164,11 +164,11 @@ test('CSV parser catches malformed rows and duplicates, scoped exports preserve 
   for(const branch of ['all','1','2']){
     await page.locator('#branch').selectOption(branch);await go(page,'inventory');
     const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-catalog="export"]').click()]);
-    const text=fs.readFileSync(await download.path(),'utf8');assert.match(text,/Buying value at sample carrying cost/);assert.ok(text.includes(await page.locator('[data-scope]').innerText()));
+    const text=fs.readFileSync(await download.path(),'utf8');assert.match(text,/Buying value at branch carrying cost/);assert.ok(text.includes(await page.locator('[data-scope]').innerText()));
     const total=await page.evaluate(()=>catalogRows().reduce((s,p)=>s+stock(p),0));assert.equal(total,branch==='all'?334:branch==='1'?201:133);
   }
   await page.locator('#role').selectOption('manager');const [download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-catalog="export"]').click()]);
-  const text=fs.readFileSync(await download.path(),'utf8');assert.ok(!text.includes('Buying value at sample carrying cost'));assert.ok(!text.includes('Dakbangla'));
+  const text=fs.readFileSync(await download.path(),'utf8');assert.ok(!text.includes('Buying value at branch carrying cost'));assert.ok(!text.includes('Dakbangla'));
 });
 
 test('individual/reprint and bulk barcode labels retain identity and respect quantities/dimensions',async t=>{
@@ -231,8 +231,8 @@ test('keyboard HID scans, out-of-stock catalog variants and receiving validation
   await go(page,'pos');await page.locator('#pos-search').fill(variant.barcode);await page.locator('#pos-search').press('Enter');assert.match(await page.locator('#toast').innerText(),/Out of stock/);assert.equal(await page.locator('.cart-line').count(),0);
   await page.locator('h1').click();await page.keyboard.type('100001001',{delay:10});await page.keyboard.press('Enter');await page.locator('h1').click();await page.keyboard.type('100001001',{delay:10});await page.keyboard.press('Enter');assert.equal(await page.locator('.qty span').innerText(),'2');
   await page.locator('#customer').fill('100001001');await page.locator('#customer').press('Enter');assert.equal(await page.locator('.qty span').innerText(),'2');await page.keyboard.press('F2');assert.equal(await page.locator('#pos-search').evaluate(el=>el===document.activeElement),true);
-  await go(page,'purchases');await page.locator('[data-action="purchase"]').click();await page.locator('#receive-variant').selectOption(String(variant.id));await page.locator('[data-receive-quantity]').fill('-2');await page.getByRole('button',{name:'Save receiving preparation'}).click();assert.match(await page.locator('#receive-error').innerText(),/whole quantities/);
-  await page.locator('[data-receive-quantity]').fill('5');await page.getByRole('button',{name:'Save receiving preparation'}).click();assert.match(await page.locator('#content').innerText(),/PREP-1/);assert.equal(await page.evaluate(id=>products.find(p=>p.id===id).b1,variant.id),0);
+  await go(page,'purchases');await page.locator('[data-action="purchase"]').click();await page.locator('#receive-variant').selectOption(String(variant.id));await page.locator('[data-receive-quantity]').fill('-2');await page.getByRole('button',{name:'Save draft'}).click();assert.match(await page.locator('#receive-error').innerText(),/whole quantities/);
+  await page.locator('[data-receive-quantity]').fill('5');await page.getByRole('button',{name:'Save draft'}).click();assert.match(await page.locator('#content').innerText(),/PO-1/);assert.equal(await page.evaluate(id=>products.find(p=>p.id===id).b1,variant.id),0);
 });
 
 test('new-variant SKU suggestions follow category/attributes, resolve abbreviations and preserve manual/historical entries',async t=>{

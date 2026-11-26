@@ -246,8 +246,8 @@ test('catalog-only variants, Manager creation, receiving preparation and barcode
   assert.deepEqual(manager.availability,{'1':true,'2':false});
   await page.evaluate(id=>receiveForm([id]),manager.id);
   await page.locator('[data-receive-quantity]').fill('5');
-  await page.getByRole('button',{name:'Save receiving preparation'}).click();
-  const received=await page.evaluate(id=>({product:products.find(p=>p.id===id),draft:state.receivingDrafts.at(-1)}),manager.id);
+  await page.getByRole('button',{name:'Save draft'}).click();
+  const received=await page.evaluate(id=>({product:products.find(p=>p.id===id),draft:invoices[0]}),manager.id);
   assert.equal(received.product.b1,0);assert.equal(received.product.b2,0);
   assert.equal(received.draft.branch,1);assert.equal(received.draft.lines[0].qty,5);
   await go(page,'inventory');

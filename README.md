@@ -1,4 +1,4 @@
-# QAHAF — Advanced Fashion POS · Phase 2 demo
+# QAHAF — Advanced Fashion POS · Phase 3 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
 
@@ -36,13 +36,13 @@ The application still opens as a static site. Node.js is used for development te
 - A deterministic 90-day sample sales ledger supplies invoices, discounts, refunds, payment methods, item/category performance and gross profit. Revenue and profit include refund reversals. Average invoice is net revenue divided by sales invoice count.
 - Operating profit equals gross profit less expenses. Every expense belongs to one branch. Combined reports sum the two branches without allocating or splitting expenses. Inventory value always reflects current stock at catalog cost.
 - Add Product and Edit Product support shared category/subcategory, description, pattern/design, up to six photos, size/color combinations, per-variant buying/selling prices and inclusive-by-default VAT metadata. Auto SKUs use stable category codes and sequential product numbers, follow new-variant attribute changes and resolve abbreviation collisions. Manual and historical SKUs stay unchanged unless explicitly edited. Manual SKU edits retain aliases and stable IDs. Duplicate SKUs, historical aliases and barcode identities are reserved company-wide.
-- Save Product and Save & Add Another create zero-stock catalog variants. Save & Receive Stock prepares intended branch quantities. Purchases shows these session-only preparations. No save, preparation or catalog import posts stock or an unlinked purchase. Supplier receipt accounting is Phase 3.
+- Save Product creates catalog data only. Save & Receive Stock opens an invoice with the new variants. Save draft reserves a reference. Confirm receipt posts stock, costs and supplier balances to the selected branch.
 - Owner manages taxonomy, status, safe deletion and bulk category/price/status changes. Both roles retain inline taxonomy creation and branch-scoped availability management. Bulk changes require validation and preview. Existing stock/history prevents deletion, while deactivation preserves references.
-- All Products, Stock Report and Low Stock support category filters and name/SKU/barcode lookup, exact variant details and size/color matrices. The low-stock threshold is 5 in `config.js`. Owner sees current stock buying and marked selling values. Catalog buying-price suggestions are separate from the unchanged sample carrying costs.
+- All Products, Stock Report and Low Stock support category filters and name/SKU/barcode lookup, exact variant details and size/color matrices. The low-stock threshold is 5 in `config.js`. Owner sees current stock buying and marked selling values. Catalog buying-price suggestions are separate from the branch carrying costs.
 - Availability is branch-specific and never moves quantities. Stock or unresolved transfers prevent removal of availability. Manager creation, availability, preparations and imports are restricted to New Market. Product definitions remain company-wide.
 - CSV import supports validation and preview with all-or-nothing, new-variant creation. Catalog and stock exports follow active filters and branch scope. See the format below.
 - POS accepts barcode plus Enter in the scan field. F2 focuses it. Fast HID scans also work when focus is outside editable fields. Other input fields retain normal typing. Repeated scans respect branch stock limits.
-- Sample checkout updates the in-memory sales ledger and branch stock. Existing transfers update sample on-hand stock. Receiving prepares a Phase 3 draft without posting quantities. Combined requires a specific branch for operational transactions.
+- Sample checkout records branch carrying cost at sale. Receipts and openings update moving-average cost. Transfers carry their dispatch value into the receiving branch.
 - Code 128 labels use locally bundled JsBarcode 3.12.1 under its MIT license. Preview and print 1–100 individual/bulk labels, width 40–100 mm and minimum height 25–100 mm, with optional selling price. Reprints retain the same barcode. Use 100% print scale and validate a physical print with the demonstration scanner.
 
 ## Demo features
@@ -68,11 +68,11 @@ product_key,name,category_code,subcategory,description,size,color,pattern,design
 
 Required columns are `product_key`, `name`, `category_code`, `size`, `color`, `buying_price` and `selling_price`. Rows with the same `product_key` form one new style and must share name/category/subcategory/description/pattern/design, with unique size/color combinations. Category codes must already exist. Subcategories must match their category. Blank SKU/barcode cells receive unique generated identities. Explicit barcodes must contain 6–24 digits. VAT accepts included/inclusive, excluded/exclusive or exempt, defaulting to included.
 
-Branch accepts the selected branch name/ID, or Combined for Owner in Combined scope. `available` and `active` default to true and accept true/false, yes/no or 1/0. Manager imports must use the assigned branch. Prices must be finite, buying nonnegative and selling at least 0.01. Imports create new zero-stock variants. Existing SKUs/barcodes are rejected, so exports are reference files rather than an overwrite/update mechanism. Use Edit Product to update existing identities. Stock/quantity columns are rejected until linked opening purchases are implemented in Phase 3.
+Branch accepts the selected branch name/ID, or Combined for Owner in Combined scope. `available` and `active` default to true and accept true/false, yes/no or 1/0. Manager imports must use the assigned branch. Prices must be finite, buying nonnegative and selling at least 0.01. Imports create new zero-stock variants. Existing SKUs/barcodes are rejected, so exports are reference files rather than an overwrite/update mechanism. Use Edit Product to update existing identities. Use Purchases → Import opening stock for the separate branch,sku,quantity,buying_cost format.
 
 ## Phase boundary
 
-Phase 2 is complete for client review. Supplier invoices, receipt posting, supplier payments/dues/returns, cost-bearing opening imports and moving weighted-average costing remain Phase 3. Dead/defective stock calculations remain Phase 5. VAT is still metadata and tax calculations remain scheduled for later phases. No later module is implemented by this iteration.
+Phase 3 covers supplier purchases, payments, returns, opening stock and branch moving-average costing. Phase 4 covers sales invoicing, tax, tenders and linked customer returns.
 
 ## Important limitations
 

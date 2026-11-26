@@ -1,6 +1,22 @@
 # QAHAF Advanced Fashion POS implementation status
 
-Audited and updated on 24 November 2026 in Asia/Dhaka. Phase 2 product and inventory management is complete within the public sample demo scope. Phase 3 has not been started.
+Updated 26 November 2026. Phase 3 is complete for the session-only demo.
+
+## Phase 3 delivery
+
+Purchases now handles supplier management, multi-line invoices, drafts, posting, date/search filtering, details, printing and scoped CSV. Save & Receive Stock opens the same invoice with the selected variants. The supplier invoice number is required for posting and unique per supplier. The purchase reference guards repeat confirmation. Legacy sample receipt summaries remain visible as historical examples outside the new ledger.
+
+Stock value is tracked in integer paisa per variant and branch. Each session starts at the Phase 2 on-hand quantities and carrying costs. Line discounts reduce the line base. Invoice discounts, nonrecoverable tax and landing charges are allocated in proportion to discounted line amounts (by quantity when all amounts are zero). Cumulative rounding assigns the invoice total exactly. Sales consume a proportional share of the current branch value and retain the resulting COGS snapshot. Transfers carry their dispatch basis. The inventory history shows signed quantities and values.
+
+Supplier payments and refunds are linked cash movements. Outstanding balances reflect the original invoice less credited returns and net payments. Returns use proportional original landed value for supplier credit, remove current carrying value and recognize the difference separately in operating profit. Purchase payments and receipts do not enter operating expenses. Opening CSV batches validate all rows before posting. Each branch/variant can receive one imported opening balance per session, separately identified from supplier receipts.
+
+Tests cover the 10 × ৳300 plus 10 × ৳400 example, checkout at ৳350, return variance, balances, duplicate posting/imports, branch isolation, and purchase form and print media at all four required widths. Run `npm test`. Changes reset on refresh. Full account administration belongs to Phase 6. Statutory tax rules and physical printer acceptance remain pending.
+
+Phase 4 can use the branch cost snapshots for invoice history and linked sales returns. Sales tax, promotions, split tenders and exchanges await Phase 4 approval.
+
+## Historical Phase 0–2 audit (at Phase 2 close)
+
+The following findings and phase matrix describe the previous release. The Phase 3 delivery above supersedes its purchasing and costing entries.
 
 ## Audit scope and baseline
 
@@ -243,4 +259,4 @@ The master document already resolves the important business rules for later impl
 
 Approval to execute Phase 3 is the next required instruction. Tax rates/statutory formats, optional sales-representative applicability and production hosting/providers/sign-off remain business decisions for their scheduled phases.
 
-**STOP after Phase 2. Phase 3 and subsequent phases require explicit user authorization.**
+Phase 3 was subsequently authorized and delivered as documented above.

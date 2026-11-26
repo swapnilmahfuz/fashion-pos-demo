@@ -126,7 +126,7 @@ function expenseAmount(period, branch=curBranch()) {
     .reduce((n,e) => n + e.amount,0));
 }
 function inventoryValue(branch=curBranch()) {
-  return round(products.reduce((n,p) => n + p.cost*(branch==='all' ? p.b1+p.b2 : p['b'+branch]),0));
+  return round(products.reduce((n,p) => n + stockValue(p,branch),0));
 }
 function table(headers, rows) {
   return '<div class="tablewrap"><table class="tbl"><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+
@@ -203,18 +203,18 @@ function monthlyOverview() {
   const rows=rowsFor(state.month),f=figures(rows),expenses=expenseAmount(state.month);
   const days=new Date(Number(state.month.slice(0,4)),Number(state.month.slice(5,7)),0).getDate();
   return title('Monthly overview','Sales, costs and branch performance from the same sample ledger.')+periodControls(true)+
-    '<div class="grid metrics">'+[['REVENUE',f.revenue],['GROSS PROFIT',f.profit],['OPERATING PROFIT',f.profit-expenses],['EXPENSES',expenses],['CURRENT INVENTORY VALUE',inventoryValue()]]
+    '<div class="grid metrics">'+[['REVENUE',f.revenue],['GROSS PROFIT',f.profit],['OPERATING PROFIT',f.profit-expenses+returnVariance(state.month)],['EXPENSES',expenses],['CURRENT INVENTORY VALUE',inventoryValue()]]
     .map(([n,v])=>metric(n,money(v),'Selected scope')).join('')+'</div>'+
     chart('Daily revenue and gross profit',Array.from({length:days},(_,i)=>({label:String(i+1),...figures(rows.filter(s=>s.date===state.month+'-'+String(i+1).padStart(2,'0')))})),true)+
     section('Branch comparison',table(['Branch','Revenue','Gross profit','Expenses','Operating profit'],(curBranch()==='all'?[1,2]:[Number(curBranch())]).map(b=>{
-      const v=figures(rowsFor(state.month,String(b))),e=expenseAmount(state.month,String(b));return [branchLabel(b),money(v.revenue),money(v.profit),money(e),money(v.profit-e)];
+      const v=figures(rowsFor(state.month,String(b))),e=expenseAmount(state.month,String(b));return [branchLabel(b),money(v.revenue),money(v.profit),money(e),money(v.profit-e+returnVariance(state.month,String(b)))];
     })))+section('Best-selling products',bestSellingTable(rows))+section('Variant sales',itemTable(rows))+section('Category performance',categoryTable(rows))+
-    '<p class="note">Every expense belongs to its recorded branch. Inventory value is current on-hand cost, independent of the selected reporting month.</p>'+noReal;
+    '<p class="note">Operating profit includes supplier return credits less returned carrying value. Every expense belongs to its recorded branch. Inventory value is current on-hand cost, independent of the selected reporting month.</p>'+noReal;
 }
 finance = monthlyOverview;
 profitFigures = function() {
   const f=figures(rowsFor(state.month)),ops=expenseAmount(state.month);
-  return {revenue:f.revenue,cogs:round(f.revenue-f.profit),ops,profit:round(f.profit-ops)};
+  return {revenue:f.revenue,cogs:round(f.revenue-f.profit),ops,profit:round(f.profit-ops+returnVariance(state.month))};
 };
 expenses = function() {
   const rows=state.expenses.filter(e=>e.date.startsWith(state.month)&&scoped(e.branch));
@@ -261,7 +261,7 @@ function field(label,id,type='text',value='') {
 window.addEventListener('afterprint',()=>{document.body.classList.remove('printing-labels');$('#print-root')?.remove();});
 const originalAction=handleAction;
 handleAction = function(action) {
-  if(['checkout','scan','transfer','purchase','expense','stocktake'].includes(action)&&!requireBranch())return;
+  if(['checkout','scan','transfer','expense'].includes(action)&&!requireBranch())return;
   if(action==='product-form')return productForm();
   if(action==='purchase'||action==='stocktake')return receiveForm();
   if(action==='labels')return labels(products[0].id);
@@ -278,7 +278,7 @@ function exportReport() {
   const period=state.page==='overview'?state.date:state.month;
   const rows=rowsFor(period),f=figures(rows),e=expenseAmount(period);
   let csvRows=[['Brand','Period','Branch','Metric','Value'],
-    ...Object.entries({...f,expenses:e,operatingProfit:round(f.profit-e),currentInventoryValue:inventoryValue()}).map(([k,v])=>[APP_CONFIG.brand,period,branchLabel(curBranch()),k,v]),
+    ...Object.entries({...f,expenses:e,purchaseReturnVariance:returnVariance(period),operatingProfit:round(f.profit-e+returnVariance(period)),currentInventoryValue:inventoryValue()}).map(([k,v])=>[APP_CONFIG.brand,period,branchLabel(curBranch()),k,v]),
     [],['Invoice','Date','Hour','Branch','Method','Barcode','SKU','Category','Product','Size','Color','Net units','Net revenue','Gross profit','Discount'],
     ...rows.flatMap(s=>s.lines.map(l=>{
       const p=products.find(p=>p.id===l.productId);
@@ -350,8 +350,9 @@ $('#modal-root').addEventListener('click',e=>{
     const p=products.find(p=>p.id===Number($('#tr-product').value)),qty=Number($('#tr-qty').value),from=Number(curBranch());
     if(!p.active||p.deleted||!availableAt(p,from)||!availableAt(p,from===1?'2':'1'))return notify('The variant must be active and available in both transfer branches');
     if(!Number.isInteger(qty)||qty<1||qty>p['b'+from])return notify('Invalid quantity or insufficient sample stock');
-    p['b'+from]-=qty;stockMovements.push({productId:p.id,branch:from,qty:-qty,type:'Transfer dispatch'});
-    state.transfers.unshift({id:'TR-DEMO-'+(state.transfers.length+1),from,to:from===1?2:1,style:p.style,productId:p.id,qty,status:'In transit'});
+    const basis=issueValue(p,from,qty);
+    moveStock(p,from,-qty,-basis,'Transfer dispatch','TR-DEMO-'+(state.transfers.length+1));
+    state.transfers.unshift({id:'TR-DEMO-'+(state.transfers.length+1),from,basis,to:from===1?2:1,style:p.style,productId:p.id,qty,status:'In transit'});
     state.cart=[];closeModal();render();notify('Sample units dispatched into transit');return;
   }
   if(!state.cart.length)return;
@@ -362,7 +363,11 @@ $('#modal-root').addEventListener('click',e=>{
   // Assign rounding remainder to the final line so invoice and report totals agree.
   const remainder=round(t.total-sale.lines.reduce((n,l)=>n+l.revenue,0));
   const last=sale.lines[sale.lines.length-1];last.revenue=round(last.revenue+remainder);last.profit=round(last.profit+remainder);last.discount=round(last.discount-remainder);
-  state.cart.forEach(l=>products.find(p=>p.id===l.id)['b'+curBranch()]-=l.qty);
+  sale.lines.forEach(line=>{
+    const p=products.find(item=>item.id===line.productId), basis=issueValue(p,sale.branch,line.qty);
+    line.cogs=basis/100;line.unitCost=line.cogs/line.qty;line.profit=round(line.revenue-line.cogs);
+    moveStock(p,sale.branch,-line.qty,-basis,'Sale',sale.id,false);
+  });
   ledger.push(sale);state.demoTransactions.push(sale);state.cart=[];state.discount=0;state.customer='';
   closeModal();render();
   openModal('<h2>Sample receipt generated</h2><div id="demo-receipt" class="receipt"><h3>'+APP_CONFIG.brand+'</h3><p>'+sale.id+' · '+branchLabel(sale.branch)+' · '+today+'</p>'+
@@ -415,7 +420,7 @@ bind=function(){
   document.querySelectorAll('[data-receive-transfer]').forEach(b=>b.onclick=()=>{
     const t=state.transfers.find(t=>t.id===b.dataset.receiveTransfer);
     if(!t||t.status!=='In transit'||Number(curBranch())!==t.to)return;
-    products.find(p=>p.id===t.productId)['b'+t.to]+=t.qty;t.status='Received';
-    stockMovements.push({productId:t.productId,branch:t.to,qty:t.qty,type:'Transfer receipt'});render();
+    moveStock(products.find(p=>p.id===t.productId),t.to,t.qty,t.basis,'Transfer receipt',t.id);t.status='Received';
+    render();
   });
 };
