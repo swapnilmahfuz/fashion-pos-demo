@@ -36,7 +36,7 @@ for (const [width,height] of [[1440,1000],[1024,768],[390,844],[360,800]]) {
     }
     assert.equal(await page.locator('#nav button').filter({ hasText:'Damage & Dead Stock' }).count(),0);
     assert.equal(await page.locator('#nav button').filter({ hasText:'Funds & Accounts' }).count(),0);
-    assert.match(await page.locator('#nav').textContent(),/Planned · Phase 5/);
+    assert.match(await page.locator('#nav').textContent(),/Damage & Defects/);
     await go(page,'inventory');
     await page.getByRole('tab',{name:'Stock Report',exact:true}).focus();
     await page.keyboard.press('ArrowRight');
@@ -263,11 +263,12 @@ test('existing transfers and branch expenses stay isolated and reconcile', async
   await page.locator('#branch').selectOption('1');
   const stock=await page.evaluate(()=>[products[0].b1,products[0].b2]);
   await go(page,'transfers');
-  await page.locator('[data-action="transfer"]').click();
-  await page.locator('[data-save="transfer"]').click();
+  await page.locator('[data-stock-action="transfer"]').click();
+  await page.locator('[data-dispatch-transfer]').click();
   assert.equal(await page.evaluate(()=>products[0].b1),stock[0]-2);
   await page.locator('#branch').selectOption('2');
   await page.locator('[data-receive-transfer]').click();
+  await page.locator('#confirm-inbound').click();
   assert.equal(await page.evaluate(()=>products[0].b2),stock[1]+2);
   await go(page,'expenses');
   await page.locator('[data-action="expense"]').click();

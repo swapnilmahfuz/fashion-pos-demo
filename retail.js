@@ -366,6 +366,7 @@ function postReturn({ token, s, choices, reason, replacement = [], account }) {
       moveStock(p, s.branch, l.qty, -l.basis, "Customer return", r.id, false);
     else
       retail.defects.push({
+        date: today, reason: r.reason, actor: state.role,
         ref: r.id,
         original: s.id,
         productId: p.id,

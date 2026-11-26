@@ -1,7 +1,7 @@
 // Phase 2 catalog. Stock posting and supplier accounting are reserved for Phase 3.
 const subcategories = [];
 const catalogSelection = new Set();
-const catalogViews = ['products','inventory','lowstock','deadstock','defective'];
+const catalogViews = ['products','inventory','lowstock','adjustments','deadstock','defective'];
 let catalogScope = '';
 Object.assign(state,{catalogCategory:'',receivingDrafts:[]});
 products.forEach(product=>{
@@ -53,15 +53,16 @@ function scopedBranches() {
   return curBranch()==='all'?APP_CONFIG.branches:APP_CONFIG.branches.filter(branch=>branch.id===curBranch());
 }
 function variantReferenced(product) {
-  return invoices.some(invoice=>invoice.lines.some(line=>line.productId===product.id))||ledger.some(sale=>sale.lines.some(line=>line.productId===product.id))||
+  return stockOps.transfers.some(t=>t.lines.some(l=>l.id===product.id))||invoices.some(invoice=>invoice.lines.some(line=>line.productId===product.id))||ledger.some(sale=>sale.lines.some(line=>line.productId===product.id))||
     stockMovements.some(movement=>movement.productId===product.id&&movement.qty!==0)||
     state.transfers.some(transfer=>transfer.productId===product.id||transfer.style===product.style)||
     state.cart.some(line=>line.id===product.id);
 }
 function availabilityError(product,branch,enabled) {
   if(enabled||product.availability[branch]===enabled)return '';
+  if(retail.defects.some(d=>d.productId===product.id&&d.branch===Number(branch)&&defectState(d).qty))return 'Resolve the branch quarantine balance first.';
   if(product['b'+branch]>0)return branchLabel(branch)+' holds stock. Availability can be removed after its stock is resolved.';
-  if(state.transfers.some(transfer=>transfer.productId===product.id&&transfer.status==='In transit'&&(String(transfer.from)===branch||String(transfer.to)===branch)))
+  if(stockOps.transfers.some(t=>[t.from,t.to].includes(Number(branch))&&t.lines.some(l=>l.id===product.id&&outstanding(t,l)>0))||state.transfers.some(transfer=>transfer.productId===product.id&&transfer.status==='In transit'&&(String(transfer.from)===branch||String(transfer.to)===branch)))
     return 'Resolve the in-transit transfer before removing availability.';
   if(curBranch()===branch&&state.cart.some(line=>line.id===product.id))return 'Finish or clear the current cart before removing availability.';
   return '';
@@ -77,12 +78,12 @@ function downloadCatalogCsv(name,rows) {
   const link=document.createElement('a');link.href=url;link.download=APP_CONFIG.brand.toLowerCase()+'-'+name+'.csv';link.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-function catalogRows() {
+function catalogRows(includeUnavailable=false) {
   const term=state.search.trim().toLowerCase();
   return catalogProducts().filter(product=>{
     const match=[product.name,product.sku,product.barcode,product.style,product.color,product.size,categoryName(product.categoryId),...(product.skuAliases||[])].join(' ').toLowerCase().includes(term);
     if(!match||state.catalogCategory&&String(product.categoryId)!==state.catalogCategory)return false;
-    if(state.page==='products')return true;
+    if(includeUnavailable||state.page==='products')return true;
     if(!availableAt(product))return false;
     if(state.page==='lowstock')return product.active&&scopedBranches().some(branch=>product.availability[branch.id]&&product['b'+branch.id]<=APP_CONFIG.lowStockThreshold);
     return true;
@@ -105,11 +106,8 @@ function catalogPage() {
   if(catalogScope!==state.role+'|'+curBranch()){
     catalogSelection.clear();catalogScope=state.role+'|'+curBranch();
   }
-  const placeholder=['deadstock','defective'].includes(state.page);
   const headings={products:'All Products',inventory:'Stock Report',lowstock:'Low Stock',deadstock:'Dead Stock',defective:'Defective Stock'};
   const actions='<div class="actions"><button class="btn primary" data-action="product-form">＋ Add Product</button><button class="btn" data-go="categories">Categories</button></div>';
-  if(placeholder)return title(headings[state.page],'Branch-scoped inventory planning.',actions)+section('Upcoming in Phase 5',
-    '<p>Dead-stock ageing, defective/quarantine quantities and their valuation will be implemented with the Phase 5 stock workflows.</p><p class="subtitle">Current sellable quantities remain available in Stock Report.</p>')+noReal;
   const rows=catalogRows();
   const quantity=rows.reduce((sum,product)=>sum+scopedQuantity(product),0);
   const buying=rows.reduce((sum,product)=>sum+stockValue(product),0);
@@ -120,7 +118,7 @@ function catalogPage() {
     '<select id="catalog-category" class="field" aria-label="Filter category"><option value="">All categories</option>'+categories.map(item=>'<option value="'+item.id+'" '+(state.catalogCategory===String(item.id)?'selected':'')+'>'+slug(item.name)+'</option>').join('')+'</select>'+
     '<button class="btn" data-catalog="import">Import CSV</button><button class="btn" data-catalog="export">Export '+(state.page==='products'?'catalog':'stock')+'</button></div>'+
     '<div class="grid metrics">'+metric('VARIANTS',rows.length,'Matching filters')+metric('AVAILABLE UNITS',quantity,'Selected branch scope')+
-    (state.role==='owner'?metric('BUYING VALUE',money(buying),'Branch carrying cost')+metric('SELLING VALUE',money(selling),'Current marked prices'):'')+'</div>'+
+    (state.role==='owner'?metric('SELLABLE BUYING VALUE',money(buying),'Sellable carrying cost')+metric('SELLING VALUE',money(selling),'Current marked prices'):'')+'</div>'+
     '<p class="note catalog-note">Catalog buying prices suggest future receipt costs. Buying stock value uses the branch carrying cost. Selling value uses marked prices with the stored VAT mode. Average cost updates when a receipt posts.</p>'+
     (exact?section('Exact variant', '<strong>'+slug(exact.name+' · '+exact.color+' / '+exact.size)+'</strong><p>'+slug(exact.sku)+' · '+exact.barcode+' · '+scopedQuantity(exact)+' units</p>'+matrix(exact)):'')+
     '<div class="toolbar bulk-toolbar"><span id="catalog-selection-count">'+catalogSelection.size+' selected</span><button class="btn" data-catalog="bulk" '+(!catalogSelection.size?'disabled':'')+'>Bulk actions</button><button class="btn" data-catalog="print" '+(!catalogSelection.size?'disabled':'')+'>Print selected barcodes</button><button class="btn" data-catalog="receive" '+(!catalogSelection.size?'disabled':'')+'>Receive stock</button></div>'+

@@ -200,7 +200,7 @@ for(const [width,height] of [[1440,1000],[1024,768],[390,844],[360,800]]){
     const page=await session(t,{width,height});
     for(const route of ['products','inventory','lowstock','deadstock','defective','categories']){
       await go(page,route);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),route);
-      if(['deadstock','defective'].includes(route))assert.match(await page.locator('#content').innerText(),/Upcoming in Phase 5/);
+      if(['deadstock','defective'].includes(route))assert.match(await page.locator('#content').innerText(),/Last sale|Quarantine/i);
     }
     await openProduct(page);assert.ok(await page.locator('#p-name').isVisible());await page.locator('[data-variant-field="sku"]').fill('MOBILE-DRAFT');await page.keyboard.press('Escape');assert.equal(await page.locator('[role=alertdialog]').count(),1);await page.locator('#keep-editing').click();assert.equal(await page.locator('[data-variant-field="sku"]').inputValue(),'MOBILE-DRAFT');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await close(page);

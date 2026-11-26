@@ -53,7 +53,7 @@ async function session(t, viewport = { width:1440, height:1000 }) {
 async function go(page, route) {
   const mobile = page.viewportSize().width <= 850;
   if (mobile) await page.locator('#nav-toggle').click();
-  const parent = ['inventory','products','lowstock','deadstock','defective','categories'].includes(route) ? 'inventory' : route;
+  const parent = ['inventory','products','lowstock','deadstock','defective','adjustments','categories'].includes(route) ? 'inventory' : route;
   await page.locator('#nav [data-page="'+parent+'"]').click();
   if(route==='categories')await page.locator('[data-go="categories"]').click();
   else if (route !== parent) await page.locator('[data-tab="'+route+'"]').click();

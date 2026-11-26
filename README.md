@@ -1,6 +1,12 @@
-# QAHAF — Advanced Fashion POS · Phase 4 demo
+# QAHAF — Advanced Fashion POS · Phase 5 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
+
+## Phase 5 client walkthrough
+
+Select New Market and open Stock Transfers. Add variants by SKU or barcode, then save a draft or dispatch. Switch to Dakbangla to receive the shipment and print the challan. The Stock Report shows carrying value through dispatch and receipt.
+
+Use Damage & Defects to quarantine an item or manage a defective customer return. Under Products & Inventory, Stock Adjustments reconciles a physical count and Dead Stock shows variants at the selected inactivity threshold. The Owner can configure the threshold separately for each branch.
 
 ## Phase 4 client walkthrough
 
@@ -14,7 +20,7 @@ Open `index.html` in a web browser (no build step). The demo also works via any 
 
 ## Phase 1 app shell
 
-The grouped sidebar preserves the existing operational screens. Products & Inventory has All Products, Stock Report, Low Stock, Dead Stock and Defective Stock tabs, with a separate Categories management screen. Dead/Defective calculations are clearly marked for Phase 5. Marketing exposes the existing offer-text copy workflow. Damage & Dead Stock and Funds & Accounts have planned labels. Monthly Overview, Reports and financial CSV exports belong to the Owner preview. Operational catalog/stock exports follow branch scope, with aggregate values limited to Owner. Managers retain operational access in their assigned branch.
+The grouped sidebar preserves the existing operational screens. Products & Inventory has All Products, Stock Report, Low Stock, Dead Stock and Defective Stock tabs, with a separate Categories management screen. Marketing exposes the existing offer-text copy workflow. Funds & Accounts is planned for Phase 6. Monthly Overview, Reports and financial CSV exports belong to the Owner preview. Operational catalog/stock exports follow branch scope, with aggregate values limited to Owner. Managers retain operational access in their assigned branch.
 
 The header identifies browser-only role simulation. Every page title shows its branch scope. `config.js` centralizes identity, branch names, assignment and navigation. Design tokens remain in `style.css`.
 
