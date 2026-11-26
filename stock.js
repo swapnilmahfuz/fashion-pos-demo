@@ -1266,7 +1266,8 @@ function thresholds() {
         );
       }
       stockOps.threshold = next;
-      finish("Thresholds saved");
+      for(const branch of branches)settingAudit("Dead-stock threshold",next[branch.id]+" days",+branch.id);
+    finish("Thresholds saved");
     },
   );
   branches.forEach((b) => {

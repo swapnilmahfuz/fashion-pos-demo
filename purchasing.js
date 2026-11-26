@@ -895,9 +895,23 @@ function supplierForm(s) {
       "Enter a unique supplier name.",
     );
     data.active = $("#supplier-active").checked;
-    if (s) Object.assign(s, data);
-    else suppliers.push({ ...data, id: suppliers.length + 1 });
-    supplierList();
+    const supplier = s || { id: suppliers.length + 1 };
+    const previous = supplier.name;
+    Object.assign(supplier, data);
+    if (!s) suppliers.push(supplier);
+    contactAudit.push({
+      ref: "SUP-" + supplier.id,
+      branch: curBranch() === "all" ? null : Number(curBranch()),
+      date: today,
+      actor: state.role,
+      action: s ? "Supplier edited" : "Supplier created",
+      detail:
+        previous && previous !== data.name
+          ? previous + " → " + data.name
+          : data.name,
+    });
+    if (state.page === "customers") finish("Supplier saved");
+    else supplierList();
   });
 }
 function openingPreview(text) {

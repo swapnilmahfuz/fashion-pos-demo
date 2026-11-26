@@ -60,6 +60,12 @@ function reportDates(preset, day = today) {
       return [dayShift(day, -1), dayShift(day, -1)];
     case "This Week":
       return [dayShift(day, -((new Date(day).getUTCDay() + 6) % 7)), day];
+    case "This Financial Year": {
+      const month = demoSettings.yearStart,
+        year =
+          Number(day.slice(0, 4)) - (Number(day.slice(5, 7)) < month ? 1 : 0);
+      return [year + "-" + String(month).padStart(2, "0") + "-01", day];
+    }
     case "This Month":
       return [start, day];
     case "Last Month":
@@ -125,7 +131,7 @@ function reportingContext(f = reportState, b = curBranch()) {
         date: s.date,
         id: s.id,
         customer,
-        customerKey: parent?.phone || s.customerId || "walk-in",
+        customerKey: customerIdFor(parent) || parent?.phone || "walk-in",
         sku: l.sku,
         product: l.productName,
         variant: l.color + " / " + l.size,
@@ -409,7 +415,7 @@ function groupedProfit(c, tab) {
       const due = c.dueSale(s);
       if (due)
         group(
-          s.phone || "walk-in",
+          customerIdFor(s) || s.phone || "walk-in",
           s.customerName || s.phone || "Walk-in / unidentified",
         ).due += due;
     }
@@ -677,18 +683,56 @@ function otherReport(c, name) {
     ].includes(name)
   )
     return paymentReport(c, name);
-  if (["Sales Representative", "Customer Groups"].includes(name))
-    return name === "Sales Representative"
-      ? tableOf(
-          ["Representative", "#Invoices", "$Net sales"],
-          [],
-          "No sales-representative attribution is recorded. Owner and Manager are application roles.",
-        )
-      : tableOf(
-          ["Customer group", "#Customers", "$Net sales"],
-          [],
-          "Customer group assignments await Phase 8.",
+  if (name === "Sales Representative")
+    return tableOf(
+      ["Representative", "#Invoices", "$Net sales"],
+      [],
+      "No sales-representative attribution is recorded. Owner and Manager are application roles.",
+    );
+  if (name === "Customer Groups") {
+    const labels = new Set([
+      ...customerGroups.map((g) => g.name),
+      ...c.lines
+        .map((r) => {
+          const original = r.s.original
+            ? retail.sales.find((s) => s.id === r.s.original)
+            : r.s;
+          return original?.groupSnapshot;
+        })
+        .filter(Boolean),
+    ]);
+    return tableOf(
+      [
+        "Customer group",
+        "#Active members",
+        "#Invoices",
+        "$Net sales",
+        "$Returns",
+      ],
+      [...labels].map((name) => {
+        const group = customerGroups.find((g) => g.name === name);
+        const history = c.lines.filter(
+          (r) =>
+            (r.s.original
+              ? retail.sales.find((s) => s.id === r.s.original)
+              : r.s
+            )?.groupSnapshot === name,
         );
+        return srcRow([
+          name,
+          group
+            ? customersData.filter(
+                (m) => m.active && m.groupId === group.id && c.branch(m),
+              ).length
+            : 0,
+          new Set(history.filter((r) => !r.l.refund).map((r) => r.id)).size,
+          rptSum(history, "net"),
+          rptSum(history, "returns"),
+        ]);
+      }),
+      "Membership reflects current assignments. Sales and returns use the group name captured when the invoice posted.",
+    );
+  }
   if (name === "Product Sell" || name === "Trending Products") {
     const rows = groupedProfit(c, "Products")
       .groups.sort((a, b) => b.qty - a.qty || b.net - a.net)
@@ -897,7 +941,7 @@ function otherReport(c, name) {
         rows
           .filter(
             (r) =>
-              r.qty <= APP_CONFIG.lowStockThreshold &&
+              r.qty <= demoSettings.lowStock &&
               availableAt(r.p, r.b) &&
               r.p.active,
           )
@@ -908,7 +952,7 @@ function otherReport(c, name) {
               r.p.sku,
               r.p.size + " / " + r.p.color,
               r.qty,
-              APP_CONFIG.lowStockThreshold,
+              demoSettings.lowStock,
             ]),
           ),
       );
@@ -1051,7 +1095,7 @@ function otherReport(c, name) {
       const row = add(
         "Customer",
         s.branch,
-        s.phone || "walk-in",
+        customerIdFor(s) || s.phone || "walk-in",
         s.customerName || s.phone || "Walk-in / unidentified",
       );
       row[6] += rptSum(
@@ -1177,6 +1221,25 @@ function otherReport(c, name) {
           ),
         ),
     ];
+    for (const e of [...contactAudit, ...settingsAudit])
+      if (
+        e.date >= c.f.from &&
+        e.date <= c.f.to &&
+        (e.branch ? c.branch(e) : c.b === "all")
+      )
+        rows.push(
+          srcRow(
+            [
+              e.date,
+              e.branch ? branchLabel(e.branch) : "Company",
+              e.ref,
+              e.action,
+              e.actor,
+              e.detail,
+            ],
+            e.ref,
+          ),
+        );
     for (const e of fundBook.audit) {
       const b =
         fundBook.accounts.find((a) => a.id === e.ref)?.branch ||

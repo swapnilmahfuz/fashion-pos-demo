@@ -32,7 +32,16 @@ function discountAmount(base, type, value) {
       : cents(val),
   );
 }
-function quoteCart(cart, branch, invoiceDiscount = 0, type = "flat") {
+function quoteCart(
+  cart,
+  branch,
+  invoiceDiscount = 0,
+  type = "flat",
+  customer = null,
+) {
+  const group = customer?.active
+    ? customerGroups.find((g) => g.id === customer.groupId)
+    : null;
   const seen = new Set(),
     time = retailTime();
   const lines = cart.map((item) => {
@@ -66,6 +75,16 @@ function quoteCart(cart, branch, invoiceDiscount = 0, type = "flat") {
         offer = o.name;
       }
     }
+    if (group) {
+      const benefit = Math.max(
+        discountAmount(unit, "percent", group.rate),
+        group.price == null ? 0 : unit - group.price,
+      );
+      if (benefit > perUnit) {
+        perUnit = benefit;
+        offer = "Group · " + group.name;
+      }
+    }
     if (item.manual != null) {
       perUnit = discountAmount(unit, item.manualType, item.manual);
       offer = "Manual";
@@ -86,7 +105,9 @@ function quoteCart(cart, branch, invoiceDiscount = 0, type = "flat") {
     };
   });
   const base = sumBy(lines, (l) => l.base),
-    invoice = discountAmount(base, type, invoiceDiscount);
+    invoice = demoSettings.invoiceDiscount
+      ? discountAmount(base, type, invoiceDiscount)
+      : 0;
   let running = 0,
     allocated = 0;
   for (const l of lines) {
@@ -114,7 +135,13 @@ function quoteCart(cart, branch, invoiceDiscount = 0, type = "flat") {
   };
 }
 function liveQuote() {
-  return quoteCart(state.cart, curBranch(), state.discount, state.discountType);
+  return quoteCart(
+    state.cart,
+    curBranch(),
+    state.discount,
+    state.discountType,
+    linkedCustomer(state.customer, curBranch()),
+  );
 }
 totals = function () {
   const q = liveQuote();
@@ -194,12 +221,22 @@ function postRetailSale({
   tenders,
   dueDate = "",
   customerName = "",
+  customerId = null,
+  originalGroup = "",
   allowDue = false,
   link = null,
 }) {
   insist(!retail.used.has(token), "Invoice already confirmed.");
   stockCheck(cart, branch);
-  const q = quoteCart(cart, branch, discount, type),
+  const customer = customerId
+    ? customersData.find(
+        (c) =>
+          c.id === Number(customerId) &&
+          (link || (c.active && customerAt(c, branch))),
+      )
+    : linkedCustomer(phone, branch);
+  if (customerId) insist(customer, "Choose an active customer in this branch.");
+  const q = quoteCart(cart, branch, discount, type, link ? null : customer),
     paid = sumBy(tenders, (t) => t.value);
   tenders.forEach((t) => {
     if (
@@ -212,24 +249,34 @@ function postRetailSale({
     );
   });
   insist(
-    paid <= q.total && (allowDue || paid === q.total),
+    paid <= q.total && ((allowDue && demoSettings.credit) || paid === q.total),
     "Payments must reconcile with the invoice total.",
   );
   insist(
-    paid === q.total || phone.trim(),
+    paid === q.total || customer?.phone || phone.trim(),
     "Enter a customer phone for an outstanding balance.",
   );
   const s = {
     ...q,
-    id: retailId("INV"),
+    id: invoiceIdentifier(branch),
     branch: Number(branch),
     date: today,
     time: retailTime(),
     hour: Number(retailTime().slice(11, 13)),
-    customerId: null,
-    phone: phone.trim(),
-    dueDate,
-    customerName: customerName.trim(),
+    customerId: customer?.id || null,
+    phone: link ? phone.trim() : customer?.phone || phone.trim(),
+    dueDate:
+      dueDate ||
+      (paid < q.total && customer?.terms
+        ? dayShift(today, customer.terms)
+        : ""),
+    customerName: link
+      ? customerName.trim()
+      : customer?.name || customerName.trim(),
+    groupSnapshot: link
+      ? originalGroup
+      : customerGroups.find((g) => g.id === customer?.groupId)?.name || "",
+    receipt: receiptSnapshot(branch),
     link,
     footer: retail.footer,
     method: tenders.map((t) => t.account).join(" + ") || "Pay later",
@@ -350,7 +397,7 @@ function postReturn({ token, s, choices, reason, replacement = [], account }) {
       time: retailTime(),
       hour: Number(retailTime().slice(11, 13)),
       branch: s.branch,
-      customerId: null,
+      customerId: s.customerId,
       method: account,
       original: s.id,
       credit,
@@ -364,6 +411,9 @@ function postReturn({ token, s, choices, reason, replacement = [], account }) {
       cart: replacement,
       branch: s.branch,
       phone: s.phone,
+      customerId: s.customerId,
+      customerName: s.customerName,
+      originalGroup: s.groupSnapshot,
       link: r.id,
       tenders: [
         { account: "Exchange credit", value: applied, kind: "Exchange offset" },
@@ -427,14 +477,14 @@ function opts(values) {
 
 function retailCheckout() {
   if (!requireBranch() || !state.cart.length) return;
-  const q = liveQuote();
+  let q = liveQuote();
   retailModal(
     "Checkout",
     '<form id="retail-checkout"><p>' +
       slug(state.customer || "Walk-in") +
       " · " +
       branchLabel(curBranch()) +
-      "</p><p>Discount " +
+      '</p><p id="checkout-summary">Discount ' +
       amount(q.discount) +
       " · VAT " +
       amount(q.tax) +
@@ -447,11 +497,23 @@ function retailCheckout() {
         "tel",
         state.customer,
       ) +
+      stockSelect(
+        "checkout-customer",
+        [
+          ["", "Walk-in / match entered phone"],
+          ...customersData
+            .filter((c) => c.active && customerAt(c, curBranch()))
+            .map((c) => [c.id, c.name + " · " + c.phone]),
+        ],
+        "Customer",
+      ) +
       field("Customer name (optional)", "checkout-name") +
       field("Due date (optional)", "due-date", "date") +
       '<div id="tender-rows"></div>' +
       btn("Add split payment", 'id="add-tender"') +
-      '<label><input type="checkbox" id="pay-later"> Allow unpaid balance</label><output id="checkout-due"></output><p role="alert"></p><div class="modal-foot">' +
+      '<label><input type="checkbox" id="pay-later" ' +
+      (demoSettings.credit ? "" : "disabled") +
+      '> Allow unpaid balance</label><output id="checkout-due"></output><p role="alert"></p><div class="modal-foot">' +
       btn("Cancel", "data-close") +
       '<button class="btn primary" type="submit" data-save="checkout">Confirm sale</button></div></form>',
   );
@@ -475,6 +537,8 @@ function retailCheckout() {
       '"></label>' +
       btn("Remove", "data-remove");
     $("#tender-rows").append(row);
+    row.querySelector("[data-account]").value =
+      defaultCheckoutAccount(curBranch());
     row.querySelector("button").onclick = () => {
       row.remove();
       update();
@@ -483,7 +547,37 @@ function retailCheckout() {
   }
   add(q.total / 100);
   $("#add-tender").onclick = () => add(0);
-  form.oninput = update;
+  const reprice = () => {
+    const c =
+      scopedCustomer($("#checkout-customer").value) ||
+      linkedCustomer($("#checkout-phone").value, curBranch());
+    const payment = form.querySelector("[data-payment]"),
+      auto =
+        payment &&
+        form.querySelectorAll("[data-payment]").length === 1 &&
+        Number(payment.value) === q.total / 100;
+    q = quoteCart(
+      state.cart,
+      curBranch(),
+      state.discount,
+      state.discountType,
+      c,
+    );
+    $("#checkout-summary").textContent =
+      "Discount " +
+      amount(q.discount) +
+      " · VAT " +
+      amount(q.tax) +
+      " · Total " +
+      amount(q.total);
+    if (auto) payment.value = q.total / 100;
+    update();
+  };
+  $("#checkout-customer").onchange = reprice;
+  form.oninput = (e) => {
+    if (e.target.id === "checkout-phone") reprice();
+    else update();
+  };
   form.onsubmit = (e) => {
     e.preventDefault();
     confirmRetailCheckout();
@@ -505,6 +599,7 @@ function confirmRetailCheckout() {
       branch: curBranch(),
       cart: state.cart,
       phone: $("#checkout-phone").value,
+      customerId: $("#checkout-customer").value,
       discount: state.discount,
       type: state.discountType,
       tenders,
@@ -528,14 +623,16 @@ function saleReceipt(s) {
     returns = retail.returns.filter((r) => r.original === s.id);
   retailModal(
     "Sales invoice",
-    '<article id="demo-receipt" class="retail-receipt"><h3>QAHAF</h3><p>' +
+    '<article id="demo-receipt" class="retail-receipt">' +
+      receiptHeading(s.receipt || {}) +
+      "<p>" +
       branchLabel(s.branch) +
       " · " +
       slug(s.id) +
       "<br>" +
       s.time.replace("T", " ") +
       " (Dhaka)<br>" +
-      slug(s.phone || "Walk-in") +
+      slug([s.customerName, s.phone].filter(Boolean).join(" · ") || "Walk-in") +
       "</p>" +
       s.lines
         .map(
@@ -609,7 +706,7 @@ function saleReceipt(s) {
         .join("") +
       (s.link ? "<p>Exchange " + s.link + "</p>" : "") +
       "<p>" +
-      slug(s.footer) +
+      slug(s.receipt?.footer ?? s.footer) +
       "</p><small>Sample invoice</small></article>" +
       '<div class="modal-foot"><label>Print size<select id="receipt-layout">' +
       opts(["58mm", "80mm", "A4"]) +
@@ -618,40 +715,29 @@ function saleReceipt(s) {
       btn("Close", "data-close") +
       "</div>",
   );
-  const apply = () => {
-    const size = retail.layout;
-    $("#demo-receipt").dataset.layout = size;
-    let css = $("#receipt-page-size");
-    if (!css) {
-      css = document.createElement("style");
-      css.id = "receipt-page-size";
-      document.head.append(css);
-    }
-    css.textContent =
-      "@media print {@page {margin:" +
-      (size === "A4"
-        ? "12mm;size:A4"
-        : "0;size:" +
-          size +
-          " " +
-          Math.ceil(($("#demo-receipt").scrollHeight * 25.4) / 96 + 12) +
-          "mm") +
-      "}}";
+  const receipt = $("#demo-receipt"),
+    size = $("#receipt-layout");
+  size.value = s.receipt?.layout || retail.layout;
+  receipt.dataset.layout = size.value;
+  size.onchange = () => {
+    receipt.dataset.layout = size.value;
   };
-  $("#receipt-layout").value = retail.layout;
-  $("#receipt-layout").onchange = (e) => {
-    retail.layout = e.target.value;
-    $("#demo-receipt").dataset.layout = retail.layout;
-  };
-  $("#demo-receipt").dataset.layout = retail.layout;
-  $("#print-sale").onclick = () => {
-    apply();
-    try {
-      window.print();
-    } finally {
-      $("#receipt-page-size")?.remove();
-    }
-  };
+  $("#print-sale").onclick = () => printRetailReceipt(size.value);
+}
+function printRetailReceipt(size) {
+  const css = document.createElement("style");
+  css.id = "receipt-page-size";
+  const height = Math.ceil(($("#demo-receipt").scrollHeight * 25.4) / 96 + 12);
+  css.textContent =
+    "@media print {@page {margin:" +
+    (size === "A4" ? "12mm;size:A4" : "0;size:" + size + " " + height + "mm") +
+    "}}";
+  document.head.append(css);
+  try {
+    window.print();
+  } finally {
+    css.remove();
+  }
 }
 function returnForm(s) {
   assertSale(s);
@@ -914,7 +1000,7 @@ function campaignPanel() {
   const offers = retail.offers.filter((o) => scoped(o.branch));
   retailModal(
     "Discounts &amp; Offers",
-    "<p>The largest eligible unit discount applies. Earlier offers win ties. A manual item discount replaces the offer. The invoice discount applies to the remaining amount.</p>" +
+    "<p>The largest eligible group or promotional discount applies. Promotional offers win ties. A manual item discount overrides both. The invoice discount applies to the remaining amount.</p>" +
       table(
         ["Offer", "Branch", "Target", "Unit discount", "Dhaka time", "Status"],
         offers.map((o) => [
@@ -1162,6 +1248,10 @@ function retailSettings() {
     insist(rate >= 0 && rate <= 100, "Use a rate between 0 and 100.");
     retail.rate = rate;
     retail.footer = $("#receipt-footer").value.trim();
+    settingAudit(
+      "Sales & VAT",
+      "VAT " + retail.rate + "% · receipt policy updated",
+    );
     finish("Receipt settings saved");
   });
 }
@@ -1208,6 +1298,8 @@ bind = function () {
     $("#cart-total").textContent = amount(q.total);
     $("#cart-discount").textContent = "−" + amount(q.discount);
   };
+  $("#discount").disabled = $("#discount-type").disabled =
+    !demoSettings.invoiceDiscount;
   $("#discount").oninput = (e) => {
     state.discount = Math.min(
       100000000,

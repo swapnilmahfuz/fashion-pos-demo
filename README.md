@@ -1,6 +1,8 @@
-# QAHAF — Advanced Fashion POS · Phase 7 demo
+# QAHAF — Advanced Fashion POS · Phase 8 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
+
+The [client demo guide](docs/CLIENT_DEMO_GUIDE.md) walks through receiving, POS, stock transfers, receivables, reports, messaging and receipt settings.
 
 ## Phase 7 client walkthrough
 

@@ -4,6 +4,7 @@ const reportPeriods = [
   "This Week",
   "This Month",
   "Last Month",
+  "This Financial Year",
   "Custom",
 ];
 const reportAllowed = (name) =>

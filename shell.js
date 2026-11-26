@@ -71,11 +71,11 @@ function resetCheckoutScope() {
   catalogSelection.clear();
 }
 controls = function() {
-  state.branch = state.role==='manager' ? assignedBranch : ownerBranch;
+  state.branch = state.role==='manager' ? demoSettings.managerBranch : ownerBranch;
   const role=$('#role'), branch=$('#branch');
   role.value=state.role;
   branch.innerHTML=state.role==='owner' ? branchOptions(state.branch,true) :
-    '<option value="'+assignedBranch+'">'+branchLabel(assignedBranch)+' (assigned)</option>';
+    '<option value="'+demoSettings.managerBranch+'">'+branchLabel(demoSettings.managerBranch)+' (assigned)</option>';
   branch.value=state.branch;
   branch.disabled=state.role==='manager';
   role.onchange=event=>{
@@ -83,7 +83,7 @@ controls = function() {
     role.value=state.role;
     confirmScopeChange(()=>{
       state.role=next;
-      state.branch=next==='manager'?assignedBranch:ownerBranch;
+      state.branch=next==='manager'?demoSettings.managerBranch:ownerBranch;
       resetCheckoutScope();
       render();
     });
@@ -110,27 +110,6 @@ function contextualTabs() {
 function ownerOnlyPage() {
   return title('Owner preview required','Use the Owner role simulation to review financial analytics.')+noReal;
 }
-settings = function() {
-  const owner=state.role==='owner';
-  return title('Settings',owner?'Company settings and access overview.':'Assigned-branch access overview.')+
-    section(owner?'Company configuration':'Assigned workspace',
-      table(['Setting','Demo value'],[
-        ['Brand',APP_CONFIG.brand],['Business',APP_CONFIG.businessType],
-        ['Branch scope',branchLabel(curBranch())],
-        ...(owner?[
-          ['Branches',APP_CONFIG.branches.map(branch=>branch.name).join(' / ')],
-          ['Currency',APP_CONFIG.currency],['Timezone',APP_CONFIG.timezone],
-          ['Financial administration','Owner preview only']
-        ]:[['Assigned branch',branchLabel(assignedBranch)],['Access','Operational modules within the assigned branch']])
-      ]))+
-    '<div class="note"><strong>Browser-only role simulation</strong><br>The header role selector previews Owner and Manager access to public sample data. Production authentication and server-enforced branch permissions belong to the approved backend phases.</div>'+
-    (owner?'<p class="settings-pending">Company editing, manager accounts and financial/security administration are planned for their designated phases.</p>':'')+noReal;
-};
-function marketingPage() {
-  return title('Marketing','Prepare an offer message for the selected branch.',
-    '<button class="btn primary" data-action="offer">Create offer message</button>')+
-    section('Offer text','<p class="subtitle">The existing demo copies your message to the clipboard. Recipient selection, WhatsApp sharing and SMS delivery are planned for Phase 8.</p>')+noReal;
-}
 function reportsPage() {
   return analyticsPage();
 }
@@ -142,7 +121,7 @@ render = function() {
   const group=APP_CONFIG.navigation.find(group=>group.items.includes(item));
   $('#crumb').textContent=item?.label===APP_CONFIG.pages[state.page] ? group.label : (item?.label||'Workspace');
   $('#crumb2').textContent=APP_CONFIG.pages[state.page]||'Dashboard';
-  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,funds:fundsPage,finance:reportsPage,operationalReports:reportsPage,customers,marketing:marketingPage,settings};
+  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,funds:fundsPage,finance:reportsPage,operationalReports:reportsPage,customers:contactsPage,marketing:marketPage,settings:settingsView};
   if(!pages[state.page])state.page='overview';
   const tabs=contextualTabs();
   $('#content').innerHTML=tabs+'<div id="workspace-panel" '+(tabs?'role="tabpanel" aria-labelledby="tab-'+state.page+'"':'')+'>'+pages[state.page]()+'</div>';

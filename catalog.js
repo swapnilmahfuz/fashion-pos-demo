@@ -69,7 +69,7 @@ function availabilityError(product,branch,enabled) {
 }
 function csvCell(value) {
   let text=String(value??'');
-  if(typeof value==='string'&&/^[=+@-]/.test(text))text="'"+text;
+  if(typeof value==='string'&&/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text))text="'"+text;
   return '"'+text.replaceAll('"','""')+'"';
 }
 function downloadCatalogCsv(name,rows) {
@@ -85,7 +85,7 @@ function catalogRows(includeUnavailable=false) {
     if(!match||state.catalogCategory&&String(product.categoryId)!==state.catalogCategory)return false;
     if(includeUnavailable||state.page==='products')return true;
     if(!availableAt(product))return false;
-    if(state.page==='lowstock')return product.active&&scopedBranches().some(branch=>product.availability[branch.id]&&product['b'+branch.id]<=APP_CONFIG.lowStockThreshold);
+    if(state.page==='lowstock')return product.active&&scopedBranches().some(branch=>product.availability[branch.id]&&product['b'+branch.id]<=demoSettings.lowStock);
     return true;
   });
 }
@@ -113,7 +113,7 @@ function catalogPage() {
   const buying=rows.reduce((sum,product)=>sum+stockValue(product),0);
   const selling=rows.reduce((sum,product)=>sum+scopedQuantity(product)*product.price,0);
   const exact=rows.find(product=>matchesVariant(product,state.search.trim()));
-  return title(headings[state.page],state.page==='lowstock'?'Available variants at or below '+APP_CONFIG.lowStockThreshold+' units in a scoped branch.':'Company catalog with independent branch stock and availability.',actions)+
+  return title(headings[state.page],state.page==='lowstock'?'Available variants at or below '+demoSettings.lowStock+' units in a scoped branch.':'Company catalog with independent branch stock and availability.',actions)+
     '<div class="toolbar"><input id="table-search" class="search" aria-label="Product name, SKU or barcode" placeholder="Search name, SKU or barcode" value="'+slug(state.search)+'">'+
     '<select id="catalog-category" class="field" aria-label="Filter category"><option value="">All categories</option>'+categories.map(item=>'<option value="'+item.id+'" '+(state.catalogCategory===String(item.id)?'selected':'')+'>'+slug(item.name)+'</option>').join('')+'</select>'+
     '<button class="btn" data-catalog="import">Import CSV</button><button class="btn" data-catalog="export">Export '+(state.page==='products'?'catalog':'stock')+'</button></div>'+
@@ -150,7 +150,7 @@ function productForm(groupId) {
   const allocateBarcode=barcodeAllocator();
   const photos=[...(first?.photos||[])];
   const input=(id)=>document.getElementById(id).value.trim();
-  const currentCategory=first?.categoryId||categories.find(item=>!item.archived)?.id;
+  const currentCategory=first?.categoryId||categories.find(item=>String(item.id)===demoSettings.category&&!item.archived)?.id||categories.find(item=>!item.archived)?.id;
   const rowsHtml=()=>table(['Color','Size','SKU','Barcode','Buying price','Selling price','Active','Draft action'],draft.map((variant,index)=>[
     '<input class="input" data-variant-field="color" data-index="'+index+'" aria-label="Color variant '+(index+1)+'" value="'+slug(variant.color)+'">',
     '<input class="input" data-variant-field="size" data-index="'+index+'" aria-label="Size variant '+(index+1)+'" value="'+slug(variant.size)+'">',
@@ -182,7 +182,7 @@ function productForm(groupId) {
     '<div id="variant-draft"></div><p id="form-error" role="alert" aria-live="polite"></p>'+
     '<div class="modal-foot product-save-actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn" type="submit" value="another">Save &amp; Add Another</button><button class="btn" type="submit" value="receive">Save &amp; Receive Stock</button><button class="btn primary" type="submit" value="save">Save Product</button></div></form>');
   const form=$('#product-form');form.closest('.modal').classList.add('product-entry-modal','advanced-product-modal');
-  $('#p-vat').value=first?.vat||'included';
+  $('#p-vat').value=first?.vat||demoSettings.vatMode;
   const error=(message)=>{$('#form-error').textContent=message;};
   const readRows=()=>form.querySelectorAll('[data-variant-field]').forEach(element=>{
     const row=draft[Number(element.dataset.index)];
@@ -192,7 +192,7 @@ function productForm(groupId) {
     const category=categories.find(item=>item.id===Number(input('p-category')));
     if(!category)return;
     const reserved=new Set(draft.filter(item=>item!==variant).map(item=>(item.sku||'').trim().toUpperCase()));
-    variant.sku=uniqueCatalogSku(variantSku(category.code,group,variant.color,variant.size),reserved,variant.id);
+    variant.sku=uniqueCatalogSku(variantSku(category.code,group,variant.color,variant.size,demoSettings.skuDigits),reserved,variant.id);
     variant.suggestedSku=variant.sku;
   };
   const showRows=()=>{
@@ -235,7 +235,7 @@ function productForm(groupId) {
     if(!category||!sizes.length||!colors.length||draft.length+additions.length>50){error('Choose a category, sizes and colors, with up to 50 total variants.');return;}
     for(const {color,size} of additions){
       if(draft.some(variant=>variant.color.toLowerCase()===color.toLowerCase()&&variant.size.toLowerCase()===size.toLowerCase()))continue;
-      const variant={id:null,color,size,barcode:allocateBarcode(),buyingPrice:input('p-cost'),price:input('p-price'),active:true};
+      const variant={id:null,color,size,barcode:allocateBarcode(),buyingPrice:input('p-cost'),price:input('p-price'),active:demoSettings.active};
       suggestVariant(variant);draft.push(variant);
     }
     showRows();error('');
@@ -355,8 +355,8 @@ function labels(id,ids=[id],labelBranch=curBranch()) {
   if(!variants.length)return notify('Select available catalog variants to print.');
   openModal('<h2>'+APP_CONFIG.brand+' · Barcode labels</h2><p>Original Code 128 identities are preserved for reprints.</p>'+
     '<div class="label-variant-list">'+variants.map(product=>'<label><input type="checkbox" data-print-variant="'+product.id+'" checked> '+slug(product.name+' · '+product.size+' / '+product.color+' · '+product.sku)+'</label>').join('')+'</div>'+
-    '<div class="form-row">'+field('Labels per variant','label-count','number',1)+field('Width (mm, 40–100)','label-width','number',58)+field('Minimum height (mm, 25–100)','label-height','number',40)+'</div>'+
-    '<label><input type="checkbox" id="label-price" checked> Include selling price</label>'+
+    '<div class="form-row">'+field('Labels per variant','label-count','number',demoSettings.labelCount)+field('Width (mm, 40–100)','label-width','number',demoSettings.labelWidth)+field('Minimum height (mm, 25–100)','label-height','number',demoSettings.labelHeight)+'</div>'+
+    '<label><input type="checkbox" id="label-price" '+(demoSettings.labelPrice?'checked':'')+'> Include selling price</label>'+
     '<p class="form-help">Preview follows these dimensions. Print at 100% scale and validate the physical label with your scanner.</p><p id="label-error" role="alert"></p><div id="label-preview" class="label-preview-grid"></div>'+
     '<div class="modal-foot"><button class="btn" data-close>Close</button><button class="btn primary" id="print-labels">Print labels</button></div>');
   const build=(print=false)=>{
@@ -388,7 +388,7 @@ function labels(id,ids=[id],labelBranch=curBranch()) {
   document.querySelectorAll('[data-print-variant],#label-count,#label-width,#label-height,#label-price').forEach(element=>element.oninput=preview);
   $('#print-labels').onclick=()=>{
     const root=build(true);if(!root)return;
-    $('#print-root')?.remove();root.id='print-root';document.body.append(root);document.body.classList.add('printing-labels');window.print();
+    $('#print-root')?.remove();root.id='print-root';root.dataset.labelLayout=demoSettings.labelLayout;document.body.append(root);document.body.classList.add('printing-labels');window.print();
   };
   preview();
 }
@@ -554,7 +554,7 @@ function previewCatalogImport(text) {
     if(productGroup.details!==JSON.stringify(details))errors.push('Rows sharing a product key must have matching product details.');
     if(productGroup.combinations.has(combination))errors.push('Duplicate size/color combination in this product.');
     productGroup.combinations.add(combination);
-    const sku=record.sku?record.sku.toUpperCase():uniqueCatalogSku(variantSku(category?.code||'NEW',productGroup.id,record.color,record.size),new Set([...skus,...records.map(item=>(item.sku||'').toUpperCase()).filter(Boolean)]));
+    const sku=record.sku?record.sku.toUpperCase():uniqueCatalogSku(variantSku(category?.code||'NEW',productGroup.id,record.color,record.size,demoSettings.skuDigits),new Set([...skus,...records.map(item=>(item.sku||'').toUpperCase()).filter(Boolean)]));
     if(!/^[A-Z0-9][A-Z0-9._-]{0,63}$/.test(sku)||skuInUse(sku)||skus.has(sku))errors.push('Invalid or duplicate company-wide SKU.');
     skus.add(sku);
     const barcode=record.barcode||allocate();

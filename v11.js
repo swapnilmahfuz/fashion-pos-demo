@@ -3,7 +3,6 @@ const today = new Intl.DateTimeFormat('en-CA', { timeZone: APP_CONFIG.timezone, 
 const categories = ['Polo','Half Shirt','Check Shirt','Formal Shirt','T-Shirt','Jeans','Chinos','Panjabi','Jacket'].map((name, i) => ({ id: i + 1, name, archived: false }));
 const categoryName = id => categories.find(c => c.id === id)?.name || 'Archived category';
 const round = n => Math.round((n + Number.EPSILON) * 100) / 100;
-const assignedBranch = APP_CONFIG.managerBranch;
 let ownerBranch = 'all';
 try { ownerBranch = localStorage.getItem(APP_CONFIG.branchPreferenceKey) || localStorage.getItem('thread-owner-branch') || 'all'; } catch {}
 if (!['all','1','2'].includes(ownerBranch)) ownerBranch = 'all';
@@ -32,9 +31,9 @@ products[products.length-1].b1 = 0;
 // Stable company-wide identifiers keep variant stock independent of editable SKUs.
 const skuPart = value => String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const colorCodes = {BLACK:'BLK',WHITE:'WHT',NAVY:'NVY',FOREST:'FOR',SAND:'SND',INDIGO:'IND',IVORY:'IVR',SLATE:'SLT','SKY BLUE':'SKY'};
-function variantSku(categoryCode, number, color, size) {
+function variantSku(categoryCode, number, color, size, digits=4) {
   const colorCode=colorCodes[color.toUpperCase()]||skuPart(color).slice(0,6);
-  return categoryCode+'-'+String(number).padStart(4,'0')+'-'+colorCode+'-'+skuPart(size);
+  return categoryCode+'-'+String(number).padStart(digits,'0')+'-'+colorCode+'-'+skuPart(size);
 }
 function skuInUse(sku, excludeId) {
   const value=sku.toUpperCase();
@@ -269,7 +268,7 @@ handleAction = function(action) {
   if(action==='transfer')return transferForm();
   if(action==='labels')return labels(products[0].id);
   if(action==='role-manager'||action==='role-owner'){
-    state.role=action==='role-manager'?'manager':'owner';state.branch=state.role==='manager'?assignedBranch:ownerBranch;state.cart=[];render();return;
+    state.role=action==='role-manager'?'manager':'owner';state.branch=state.role==='manager'?demoSettings.managerBranch:ownerBranch;state.cart=[];render();return;
   }
   if(action==='report')return exportReport();
   originalAction(action);
