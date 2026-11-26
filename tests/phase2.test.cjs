@@ -37,7 +37,7 @@ test('single catalog save, defaults, inline taxonomy, photos and save-and-add-an
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS1sAAAAASUVORK5CYII=','base64');
   await page.locator('#p-photos').setInputFiles([{name:'front.png',mimeType:'image/png',buffer:png},{name:'back.png',mimeType:'image/png',buffer:png}]);
   await save(page,'Save & Add Another');
-  await page.locator('#p-name').waitFor();assert.equal(await page.locator('#p-name').inputValue(),'');
+  await page.waitForFunction(()=>products.at(-1).name==='Client Polo' && document.querySelector('#p-name')?.value==='');assert.equal(await page.locator('#p-name').inputValue(),'');
   const p=await page.evaluate(()=>products.at(-1));
   assert.equal(p.photos.length,2);assert.equal(p.description,'Breathable linen');assert.equal(p.pattern,'Solid');assert.equal(p.design,'Relaxed');assert.ok(p.subcategoryId);
   assert.equal(p.b1+p.b2,0);assert.equal(p.vat,'included');assert.equal(p.buyingPrice,680);
