@@ -203,18 +203,18 @@ function monthlyOverview() {
   const rows=rowsFor(state.month),f=figures(rows),expenses=expenseAmount(state.month);
   const days=new Date(Number(state.month.slice(0,4)),Number(state.month.slice(5,7)),0).getDate();
   return title('Monthly overview','Sales, costs and branch performance from the same sample ledger.')+periodControls(true)+
-    '<div class="grid metrics">'+[['REVENUE',f.revenue],['GROSS PROFIT',f.profit],['OPERATING PROFIT',f.profit-expenses+returnVariance(state.month)+stockResult(state.month)],['EXPENSES',expenses],['CURRENT INVENTORY VALUE',inventoryValue()]]
+    '<div class="grid metrics">'+[['REVENUE',f.revenue],['GROSS PROFIT',f.profit],['OPERATING PROFIT',f.profit-expenses+returnVariance(state.month)+stockResult(state.month)+otherIncome(state.month)],['EXPENSES',expenses],['CURRENT INVENTORY VALUE',inventoryValue()]]
     .map(([n,v])=>metric(n,money(v),'Selected scope')).join('')+'</div>'+
     chart('Daily revenue and gross profit',Array.from({length:days},(_,i)=>({label:String(i+1),...figures(rows.filter(s=>s.date===state.month+'-'+String(i+1).padStart(2,'0')))})),true)+
     section('Branch comparison',table(['Branch','Revenue','Gross profit','Expenses','Operating profit'],(curBranch()==='all'?[1,2]:[Number(curBranch())]).map(b=>{
-      const v=figures(rowsFor(state.month,String(b))),e=expenseAmount(state.month,String(b));return [branchLabel(b),money(v.revenue),money(v.profit),money(e),money(v.profit-e+returnVariance(state.month,String(b))+stockResult(state.month,String(b)))];
+      const v=figures(rowsFor(state.month,String(b))),e=expenseAmount(state.month,String(b));return [branchLabel(b),money(v.revenue),money(v.profit),money(e),money(v.profit-e+returnVariance(state.month,String(b))+stockResult(state.month,String(b))+otherIncome(state.month,String(b)))];
     })))+section('Best-selling products',bestSellingTable(rows))+section('Variant sales',itemTable(rows))+section('Category performance',categoryTable(rows))+
     '<p class="note">Operating profit includes supplier return variance and signed stock adjustments, write-offs and recoveries. Repair expenses belong to the posting branch. Current inventory value includes sellable, quarantine and source-owned transit balances.</p>'+noReal;
 }
 finance = monthlyOverview;
 profitFigures = function() {
   const f=figures(rowsFor(state.month)),ops=expenseAmount(state.month);
-  return {revenue:f.revenue,cogs:round(f.revenue-f.profit),ops,profit:round(f.profit-ops+returnVariance(state.month)+stockResult(state.month))};
+  return {revenue:f.revenue,cogs:round(f.revenue-f.profit),ops,profit:round(f.profit-ops+returnVariance(state.month)+stockResult(state.month)+otherIncome(state.month))};
 };
 expenses = function() {
   const rows=state.expenses.filter(e=>e.date.startsWith(state.month)&&scoped(e.branch));
@@ -262,6 +262,7 @@ window.addEventListener('afterprint',()=>{document.body.classList.remove('printi
 const originalAction=handleAction;
 handleAction = function(action) {
   if(['checkout','scan','transfer','stocktake','expense'].includes(action)&&!requireBranch())return;
+  if(action==='expense')return expenseForm();
   if(action==='product-form')return productForm();
   if(action==='purchase')return receiveForm();
   if(action==='stocktake')return countForm();
@@ -276,24 +277,16 @@ handleAction = function(action) {
 };
 function exportReport() {
   if(state.role!=='owner'){notify('Report exports are available in the Owner preview.');return;}
+  if(state.page==='expenses')return exportExpenses();
   const period=state.page==='overview'?state.date:state.month;
   const rows=rowsFor(period),f=figures(rows),e=expenseAmount(period);
   let csvRows=[['Brand','Period','Branch','Metric','Value'],
-    ...Object.entries({...f,expenses:e,purchaseReturnVariance:returnVariance(period),inventoryAdjustments:stockResult(period),operatingProfit:round(f.profit-e+returnVariance(period)+stockResult(period)),currentInventoryValue:inventoryValue()}).map(([k,v])=>[APP_CONFIG.brand,period,branchLabel(curBranch()),k,v]),
+    ...Object.entries({...f,expenses:e,purchaseReturnVariance:returnVariance(period),inventoryAdjustments:stockResult(period),otherIncome:otherIncome(period),operatingProfit:round(f.profit-e+returnVariance(period)+stockResult(period)+otherIncome(period)),currentInventoryValue:inventoryValue()}).map(([k,v])=>[APP_CONFIG.brand,period,branchLabel(curBranch()),k,v]),
     [],['Invoice','Date','Hour','Branch','Method','Barcode','SKU','Category','Product','Size','Color','Net units','Net revenue','Gross profit','Discount'],
     ...rows.flatMap(s=>s.lines.map(l=>{
       const p=products.find(p=>p.id===l.productId);
       return [s.id,s.date,s.hour,branchLabel(s.branch),s.method,l.barcode||p.barcode,l.sku||p.sku,l.categoryLabel||categoryName(p.categoryId),l.productName||p.name,l.size||p.size,l.color||p.color,l.qty*(l.refund?-1:1),l.revenue,l.profit,l.discount];
     }))];
-  if(state.page==='expenses'){
-    const expenses=state.expenses.filter(item=>item.date.startsWith(period)&&scoped(item.branch));
-    csvRows=[
-      ['Brand','Period','Branch','Metric','Value'],
-      [APP_CONFIG.brand,period,branchLabel(curBranch()),'expenses',expenseAmount(period)],
-      [],['Date','Description','Category','Branch','Amount'],
-      ...expenses.map(item=>[item.date,item.title,item.cat,branchLabel(item.branch),item.amount])
-    ];
-  }
   if(state.page==='customers'){
     csvRows=[
       ['Brand','Period','Branch'],[APP_CONFIG.brand,period,branchLabel(curBranch())],
@@ -338,15 +331,9 @@ render = function() {
 $('#modal-root').addEventListener('click',e=>{
   const button=e.target.closest('[data-save]');if(!button)return;
   const action=button.dataset.save;
-  if(!['checkout','expense'].includes(action))return;
+  if(action!=='checkout')return;
   e.stopImmediatePropagation();
   if(!requireBranch())return;
-  if(action==='expense'){
-    const amount=Number($('#ex-amount').value);
-    if(!Number.isFinite(amount)||amount<=0)return notify('Enter a positive finite amount');
-    state.expenses.unshift({date:today,title:$('#ex-title').value||'Sample expense',cat:$('#ex-cat').value,branch:Number(curBranch()),amount:round(amount)});
-    closeModal();render();notify('Sample expense added');return;
-  }
   if(action==='checkout')confirmRetailCheckout();
 },true);
 // A scanner can also start while focus is on the page itself. Editable fields

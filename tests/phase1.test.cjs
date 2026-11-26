@@ -26,7 +26,7 @@ for (const [width,height] of [[1440,1000],[1024,768],[390,844],[360,800]]) {
     assert.match(await page.title(),/QAHAF/);
     assert.deepEqual(await page.locator('#branch option').allTextContents(),['Combined','New Market','Dakbangla']);
     await page.locator('#branch').selectOption('2');
-    for (const route of ['overview','monthly','pos','inventory','products','categories','purchases','transfers','expenses','customers','finance','marketing','settings']) {
+    for (const route of ['overview','monthly','pos','inventory','products','categories','purchases','transfers','expenses','funds','customers','finance','marketing','settings']) {
       await go(page,route);
       assert.ok(await page.locator('h1').isVisible(),route);
       assert.equal(await page.locator('[data-scope]').innerText(),'Dakbangla',route);
@@ -35,7 +35,7 @@ for (const [width,height] of [[1440,1000],[1024,768],[390,844],[360,800]]) {
       assert.ok(!/THREAD|Retail OS|Gulshan|Dhanmondi/.test(await page.locator('body').innerText()),route);
     }
     assert.equal(await page.locator('#nav button').filter({ hasText:'Damage & Dead Stock' }).count(),0);
-    assert.equal(await page.locator('#nav button').filter({ hasText:'Funds & Accounts' }).count(),0);
+    assert.equal(await page.locator('#nav button').filter({ hasText:'Funds & Accounts' }).count(),1);
     assert.match(await page.locator('#nav').textContent(),/Damage & Defects/);
     await go(page,'inventory');
     await page.getByRole('tab',{name:'Stock Report',exact:true}).focus();
@@ -117,7 +117,7 @@ test('Manager operational scope and guarded financial routes and exports', async
   assert.equal(await page.locator('#branch').isDisabled(),true);
   assert.equal(await page.locator('#nav [data-page="finance"],#nav [data-page="monthly"]').count(),0);
   assert.ok(!(await page.locator('#content').innerText()).includes('GROSS PROFIT'));
-  for(const route of ['overview','inventory','products','categories','purchases','transfers','expenses','customers','marketing','settings']) {
+  for(const route of ['overview','inventory','products','categories','purchases','transfers','expenses','funds','customers','marketing','settings']) {
     await go(page,route);
     assert.equal(await page.locator('[data-scope]').innerText(),'New Market');
     assert.equal(await page.locator('[data-action="report"]').count(),0);

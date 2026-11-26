@@ -120,7 +120,9 @@ function invoiceStatus(i) {
           ? "Partial"
           : "Unpaid";
 }
-function payment(i, amount) {
+function payment(i, amount, account = "Cash Box", token = fundRef("PAY")) {
+  branchCheck(i.branch);
+  const a = fundAccount(i.branch, account);
   findInvoice(i.id);
   insist(
     !i.draft &&
@@ -130,12 +132,32 @@ function payment(i, amount) {
       Math.abs(amount) <= Math.abs(balance(i)),
     "Amount exceeds outstanding balance.",
   );
+  fundClaim(token);
+  fundEntry(
+    a,
+    -amount,
+    amount > 0 ? "Supplier payment" : "Supplier refund",
+    token,
+    "Operating",
+    "Supplier",
+    {
+      document: i.id,
+      origin:
+        amount < 0
+          ? supplierReturns
+              .filter((r) => r.invoice === i.id)
+              .map((r) => r.ref)
+              .join(", ")
+          : i.external,
+    },
+  );
   settlements.push({
     invoice: i.id,
     branch: i.branch,
     amount,
     date: today,
-    ref: "PAY-" + (settlements.length + 1),
+    ref: token,
+    account,
   });
 }
 function saveInvoice(input, draft) {
@@ -227,6 +249,7 @@ function saveInvoice(input, draft) {
     draft,
     plannedPaid: paid,
   };
+  if (!draft && paid) fundAccount(branch, input.account || "Cash Box");
   if (old) invoices[invoices.indexOf(old)] = i;
   else invoices.unshift(i);
   if (!draft) {
@@ -239,7 +262,7 @@ function saveInvoice(input, draft) {
         "Supplier receipt",
         i.id,
       );
-    if (paid) payment(i, paid);
+    if (paid) payment(i, paid, input.account);
   }
   return i;
 }
@@ -514,8 +537,15 @@ function receiveForm(ids = [], doc = null) {
           ),
         )
         .join("") +
-      '</div><output id="purchase-total"></output><p id="receive-error" role="alert"></p><div class="modal-foot"><button class="btn" value="draft">Save draft</button><button class="btn primary" value="post">Confirm receipt</button></div></form>',
+      '</div><div id="purchase-account-box"></div><output id="purchase-total"></output><p id="receive-error" role="alert"></p><div class="modal-foot"><button class="btn" value="draft">Save draft</button><button class="btn primary" value="post">Confirm receipt</button></div></form>',
   );
+  const refreshAccount = () =>
+    ($("#purchase-account-box").innerHTML = accountPicker(
+      "purchase-account",
+      $("#receive-branch").value,
+    ));
+  refreshAccount();
+  $("#receive-branch").addEventListener("change", refreshAccount);
   if (doc) $("#psupplier").value = doc.supplier;
   const draw = () => {
     $("#purchase-lines").innerHTML = lines
@@ -623,6 +653,7 @@ function receiveForm(ids = [], doc = null) {
         id,
         branch: $("#receive-branch").value,
         supplier: $("#psupplier").value,
+        account: $("#purchase-account").value,
         external: $("#external").value,
         lines,
         ...Object.fromEntries(
@@ -745,12 +776,19 @@ function invoiceDetail(id) {
       purchaseModal(
         balance(i) > 0 ? "Supplier payment" : "Supplier refund",
         '<form id="settlement">' +
+          accountPicker("supplier-account", i.branch) +
           field("Amount", "amount", "number", Math.abs(balance(i)) / 100) +
           '<p role="alert"></p><button class="btn primary">Record</button></form>',
       );
       $("#amount").step = ".01";
+      const token = fundRef("PAY");
       safeSubmit($("#settlement"), () => {
-        payment(i, Math.sign(balance(i)) * cents($("#amount").value));
+        payment(
+          i,
+          Math.sign(balance(i)) * cents($("#amount").value),
+          $("#supplier-account").value,
+          token,
+        );
         finish("Settlement recorded");
       });
     };

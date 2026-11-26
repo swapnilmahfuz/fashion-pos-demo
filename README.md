@@ -1,6 +1,12 @@
-# QAHAF — Advanced Fashion POS · Phase 5 demo
+# QAHAF — Advanced Fashion POS · Phase 6 demo
 
 An interactive, sample-data-only browser prototype for a two-branch menswear POS. **Not production software**.
+
+## Phase 6 client walkthrough
+
+Select New Market and open Funds & Accounts. Create **bKash Personal** and **City Bank** with zero opening balances. Each branch already has a Cash Box. At checkout, split a payment between Cash Box and bKash Personal and select **Allow unpaid balance**. Enter the customer’s phone. Under **Customer Dues**, collect the remaining balance into City Bank. Open the account statements to see the linked invoice and collection.
+
+Use **Expenses** to record a paid, partial or unpaid branch expense and attach a receipt. An unpaid expense appears in operating expenses immediately. Paying it later reduces the payable and the selected account. **Cash Flow** shows external receipts and payments separately from transfers between accounts. Unlinked historical samples contribute no cash entries.
 
 ## Phase 5 client walkthrough
 
@@ -20,7 +26,7 @@ Open `index.html` in a web browser (no build step). The demo also works via any 
 
 ## Phase 1 app shell
 
-The grouped sidebar preserves the existing operational screens. Products & Inventory has All Products, Stock Report, Low Stock, Dead Stock and Defective Stock tabs, with a separate Categories management screen. Marketing exposes the existing offer-text copy workflow. Funds & Accounts is planned for Phase 6. Monthly Overview, Reports and financial CSV exports belong to the Owner preview. Operational catalog/stock exports follow branch scope, with aggregate values limited to Owner. Managers retain operational access in their assigned branch.
+The grouped sidebar preserves the existing operational screens. Products & Inventory has All Products, Stock Report, Low Stock, Dead Stock and Defective Stock tabs, with a separate Categories management screen. Marketing exposes the existing offer-text copy workflow. Funds & Accounts supports branch account statements, cash movements and settlement of invoice dues. Monthly Overview, Reports and financial CSV exports belong to the Owner preview. Operational catalog/stock exports follow branch scope, with aggregate values limited to Owner. Managers retain operational access in their assigned branch.
 
 The header identifies browser-only role simulation. Every page title shows its branch scope. `config.js` centralizes identity, branch names, assignment and navigation. Design tokens remain in `style.css`.
 

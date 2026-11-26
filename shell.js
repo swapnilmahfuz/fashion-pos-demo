@@ -142,7 +142,7 @@ render = function() {
   const group=APP_CONFIG.navigation.find(group=>group.items.includes(item));
   $('#crumb').textContent=item?.label===APP_CONFIG.pages[state.page] ? group.label : (item?.label||'Workspace');
   $('#crumb2').textContent=APP_CONFIG.pages[state.page]||'Dashboard';
-  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,finance:reportsPage,customers,marketing:marketingPage,settings};
+  const pages={overview,monthly:monthlyOverview,pos,products:productsPage,categories:categoryPage,inventory,lowstock:catalogPage,deadstock:deadPage,defective:damagePage,damage:damagePage,adjustments:adjustmentPage,purchases,transfers,expenses,funds:fundsPage,finance:reportsPage,customers,marketing:marketingPage,settings};
   if(!pages[state.page])state.page='overview';
   const tabs=contextualTabs();
   $('#content').innerHTML=tabs+'<div id="workspace-panel" '+(tabs?'role="tabpanel" aria-labelledby="tab-'+state.page+'"':'')+'>'+pages[state.page]()+'</div>';

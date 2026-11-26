@@ -140,16 +140,20 @@ function stockCheck(cart, branch) {
     );
   });
 }
-function accountName(name) {
-  insist(
-    typeof name === "string" && name.trim() && name.length <= 80,
-    "Enter a payment account.",
-  );
-  return name.trim();
-}
-function recordTender(s, account, value, kind, ref) {
+function recordTender(s, account, value, kind, ref, originToken = null) {
+  const id = retailId("MOV");
+  if (kind !== "Exchange offset")
+    fundEntry(
+      fundAccount(s.branch, account),
+      value,
+      kind,
+      id,
+      "Operating",
+      "Retail",
+      { document: s.id, origin: originToken || ref },
+    );
   retail.payments.push({
-    id: retailId("MOV"),
+    id,
     invoice: s.id,
     branch: s.branch,
     date: today,
@@ -188,6 +192,8 @@ function postRetailSale({
   discount = 0,
   type = "flat",
   tenders,
+  dueDate = "",
+  customerName = "",
   allowDue = false,
   link = null,
 }) {
@@ -196,7 +202,10 @@ function postRetailSale({
   const q = quoteCart(cart, branch, discount, type),
     paid = sumBy(tenders, (t) => t.value);
   tenders.forEach((t) => {
-    accountName(t.account);
+    if (
+      !(link && t.kind === "Exchange offset" && t.account === "Exchange credit")
+    )
+      fundAccount(branch, t.account);
     insist(
       Number.isSafeInteger(t.value) && t.value >= 0,
       "Enter valid payment amounts.",
@@ -219,6 +228,8 @@ function postRetailSale({
     hour: Number(retailTime().slice(11, 13)),
     customerId: null,
     phone: phone.trim(),
+    dueDate,
+    customerName: customerName.trim(),
     link,
     footer: retail.footer,
     method: tenders.map((t) => t.account).join(" + ") || "Pay later",
@@ -249,18 +260,19 @@ function postRetailSale({
     );
   return s;
 }
-function collectDue(s, value, account) {
+function collectDue(s, value, account, token = fundRef("COL")) {
   assertSale(s);
   insist(
     curBranch() === String(s.branch),
     "Select the invoice branch to collect payment.",
   );
-  accountName(account);
+  fundAccount(s.branch, account);
   insist(
     Number.isSafeInteger(value) && value > 0 && value <= dueOn(s),
     "Collection exceeds the invoice due.",
   );
-  recordTender(s, account, value, "Due collection", s.id);
+  fundClaim(token);
+  recordTender(s, account, value, "Due collection", s.id, token);
 }
 function returnedUnits(s, id) {
   return sumBy(
@@ -322,7 +334,7 @@ function postReturn({ token, s, choices, reason, replacement = [], account }) {
   );
   insist(!retail.used.has(token), "Return already confirmed.");
   insist(reason.trim(), "Enter the return reason.");
-  accountName(account);
+  fundAccount(s.branch, account);
   const lines = previewReturn(s, choices),
     credit = -sumBy(lines, (l) => l.payable),
     excess = Math.max(0, credit - dueOn(s));
@@ -366,7 +378,9 @@ function postReturn({ token, s, choices, reason, replacement = [], account }) {
       moveStock(p, s.branch, l.qty, -l.basis, "Customer return", r.id, false);
     else
       retail.defects.push({
-        date: today, reason: r.reason, actor: state.role,
+        date: today,
+        reason: r.reason,
+        actor: state.role,
         ref: r.id,
         original: s.id,
         productId: p.id,
@@ -410,28 +424,7 @@ function retailModal(title, html) {
 function opts(values) {
   return values.map((v) => "<option>" + slug(v) + "</option>").join("");
 }
-const accounts = ["Cash Box", "Card", "Mobile banking"];
-function tenderField(id) {
-  return (
-    '<label>Payment account<input class="input" id="' +
-    id +
-    '" value="Cash Box" list="retail-accounts"></label>'
-  );
-}
-function accountList() {
-  return (
-    '<datalist id="retail-accounts">' +
-    opts([
-      ...new Set([
-        ...accounts,
-        ...retail.payments
-          .filter((p) => scoped(p.branch) && p.kind !== "Exchange offset")
-          .map((p) => p.account),
-      ]),
-    ]) +
-    "</datalist>"
-  );
-}
+
 function retailCheckout() {
   if (!requireBranch() || !state.cart.length) return;
   const q = liveQuote();
@@ -448,8 +441,14 @@ function retailCheckout() {
       " · <strong>Total " +
       amount(q.total) +
       "</strong></p>" +
-      field("Customer phone (optional for full payment)", "checkout-phone", "tel", state.customer) +
-      accountList() +
+      field(
+        "Customer phone (optional for full payment)",
+        "checkout-phone",
+        "tel",
+        state.customer,
+      ) +
+      field("Customer name (optional)", "checkout-name") +
+      field("Due date (optional)", "due-date", "date") +
       '<div id="tender-rows"></div>' +
       btn("Add split payment", 'id="add-tender"') +
       '<label><input type="checkbox" id="pay-later"> Allow unpaid balance</label><output id="checkout-due"></output><p role="alert"></p><div class="modal-foot">' +
@@ -469,7 +468,9 @@ function retailCheckout() {
     const row = document.createElement("div");
     row.className = "form-row";
     row.innerHTML =
-      '<label>Account<input class="input" list="retail-accounts" data-account value="Cash Box"></label><label>Amount<input class="input" type="number" step=".01" min="0" data-payment value="' +
+      '<label>Account<select class="field" data-account>' +
+      opts(branchAccounts(curBranch()).map((a) => a.name)) +
+      '</select></label><label>Amount<input class="input" type="number" step=".01" min="0" data-payment value="' +
       value +
       '"></label>' +
       btn("Remove", "data-remove");
@@ -508,6 +509,8 @@ function confirmRetailCheckout() {
       type: state.discountType,
       tenders,
       allowDue: $("#pay-later").checked,
+      dueDate: $("#due-date").value,
+      customerName: $("#checkout-name").value,
     });
     state.cart = [];
     state.customer = "";
@@ -626,7 +629,13 @@ function saleReceipt(s) {
     }
     css.textContent =
       "@media print {@page {margin:" +
-      (size === "A4" ? "12mm;size:A4" : "0;size:"+size+" "+Math.ceil($("#demo-receipt").scrollHeight*25.4/96+12)+"mm") +
+      (size === "A4"
+        ? "12mm;size:A4"
+        : "0;size:" +
+          size +
+          " " +
+          Math.ceil(($("#demo-receipt").scrollHeight * 25.4) / 96 + 12) +
+          "mm") +
       "}}";
   };
   $("#receipt-layout").value = retail.layout;
@@ -696,8 +705,7 @@ function returnForm(s) {
       "</select></label>" +
       field("Replacement quantity", "replacement-qty", "number", 1) +
       "</div>" +
-      accountList() +
-      tenderField("return-account") +
+      accountPicker("return-account", s.branch) +
       '<p id="return-estimate"></p><p role="alert"></p><button class="btn primary">Confirm return / exchange</button></form>',
   );
   function read() {
@@ -885,16 +893,17 @@ function historyPanel() {
               "number",
               dueOn(s) / 100,
             ) +
-            accountList() +
-            tenderField("collection-account") +
+            accountPicker("collection-account", s.branch) +
             '<p role="alert"></p><button class="btn primary">Record collection</button></form>',
         );
         $("#collection-amount").step = ".01";
+        const collectionToken = fundRef("COL");
         safeSubmit($("#collection"), () => {
           collectDue(
             s,
             cents($("#collection-amount").value),
             $("#collection-account").value,
+            collectionToken,
           );
           historyPanel();
         });

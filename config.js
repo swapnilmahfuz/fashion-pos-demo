@@ -5,7 +5,7 @@ const APP_CONFIG = Object.freeze({
   locale: 'en-BD',
   timezone: 'Asia/Dhaka',
   currency: 'BDT',
-  release: 'Phase 5',
+  release: 'Phase 6',
   branchPreferenceKey: 'qahaf-owner-branch',
   managerBranch: '1',
   lowStockThreshold: 5,
@@ -17,7 +17,7 @@ const APP_CONFIG = Object.freeze({
     overview: 'Dashboard', monthly: 'Monthly Overview', pos: 'POS & Sales',
     inventory: 'Stock Report', products: 'All Products', categories: 'Categories',
     lowstock: 'Low Stock', deadstock: 'Dead Stock', defective: 'Defective Stock', damage: 'Damage & Defects', adjustments: 'Stock Adjustments',
-    purchases: 'Purchases', transfers: 'Stock Transfers', expenses: 'Expenses',
+    purchases: 'Purchases', transfers: 'Stock Transfers', expenses: 'Expenses', funds: 'Funds & Accounts',
     customers: 'Contacts', finance: 'Reports', marketing: 'Marketing', settings: 'Settings'
   }),
   ownerPages: Object.freeze(['monthly', 'finance']),
@@ -33,7 +33,7 @@ const APP_CONFIG = Object.freeze({
       { page: 'transfers', label: 'Stock Transfers', icon: '⇄' },
       { page: 'damage', label: 'Damage & Defects', icon: '▧' },
       { page: 'expenses', label: 'Expenses', icon: '▧' },
-      { label: 'Funds & Accounts', icon: '▨', planned: 6, owner: true }
+      { page: 'funds', label: 'Funds & Accounts', icon: '▨' }
     ] },
     { label: 'Relationships', items: [
       { page: 'customers', label: 'Contacts', icon: '♧' },

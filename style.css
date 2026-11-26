@@ -205,3 +205,5 @@ body{font-family:var(--font-body)}
 .stock-form fieldset{border:1px solid var(--line);border-radius:8px;margin:12px 0;padding:12px;min-width:0}
 .stock-form label,.stock-form select{display:block;max-width:100%}
 .stock-form .field{margin:6px 0 12px;width:100%}
+
+[data-fund-tab][aria-pressed=true]{background:var(--accent);color:var(--bg)}

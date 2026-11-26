@@ -320,7 +320,15 @@ function defectState(d) {
 }
 function resolveDefect(
   d,
-  { token, kind, qty, repair = 0, recovery = 0, notes = "" },
+  {
+    token,
+    kind,
+    qty,
+    repair = 0,
+    recovery = 0,
+    account = "Cash Box",
+    notes = "",
+  },
 ) {
   requireStockBranch(d.branch);
   fresh(token);
@@ -347,6 +355,7 @@ function resolveDefect(
   const basis = Math.round((open.basis * qty) / open.qty),
     expense = cents(repair),
     recovered = cents(recovery);
+  const paymentAccount = fundAccount(d.branch, account);
   const p = variant(d.productId);
   if (kind === "Restore")
     insist(
@@ -368,13 +377,28 @@ function resolveDefect(
   if (kind === "Restore")
     moveStock(p, d.branch, qty, basis, "Restore repaired stock", token);
   if (expense)
-    state.expenses.unshift({
+    writeExpense({
+      ref: "REPAIR-" + token,
       branch: d.branch,
       date: today,
       cat: "Repair",
       title: "Repair · " + token,
-      amount: expense / 100,
+      total: expense,
+      paid: expense,
+      account,
+      source: "Stock repair",
+      original: token,
     });
+  if (recovered)
+    fundEntry(
+      paymentAccount,
+      recovered,
+      "Stock recovery",
+      token,
+      "Operating",
+      "Stock",
+      { document: d.ref },
+    );
 }
 function postCount({
   token,
@@ -977,6 +1001,7 @@ function lotForm(d) {
     ) +
       '<div id="lot-values">' +
       field("Units", "lot-qty", "number", open.qty) +
+      accountPicker("lot-account", d.branch) +
       field("Repair expense", "repair-cost", "number", 0) +
       field("Recovered amount", "recovered", "number", 0) +
       "</div>" +
@@ -987,6 +1012,7 @@ function lotForm(d) {
         token,
         kind: $("#lot-action").value,
         qty: $("#lot-qty").value,
+        account: $("#lot-account").value,
         repair: $("#repair-cost").value,
         recovery: $("#recovered").value,
         notes: $("#lot-notes").value,
